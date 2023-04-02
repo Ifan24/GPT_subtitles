@@ -136,6 +136,9 @@ def add_dual_subtitles(video_path, eng_transcript, translated_transcript, font_f
     
     print(f'translated subtitle is saved at {sub_translated}')
     
+    
+    # TODO: embed the subtitle into the video is not working yet, because the font in other language is not found
+    
     # output_file = 'dual_sub_' + os.path.basename(video_path)
     # print("Writing video to file: " + output_file)
 
@@ -181,7 +184,7 @@ if __name__ == "__main__":
     parser.add_argument('--local_video', help='The path to the local video file.', type=str)
     parser.add_argument('--target_language', help='The target language for translation.', default='zh')
     parser.add_argument("--model", help="""Choose one of the Whisper model""", default='small', type=str)
-    parser.add_argument("--font_path", help="""The path to the local font file for the target language.""", default='msyh.ttc', type=str)
+    # parser.add_argument("--font_path", help="""The path to the local font file for the target language.""", default='msyh.ttc', type=str)
     
     args = parser.parse_args()
 
