@@ -5,7 +5,8 @@ from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer
 from tqdm import tqdm
 from pathlib import Path
 import copy
-import requests
+from pythumb import Thumbnail
+import subprocess
 # import pysrt
 # from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
 # from ffpb import main as ffpb_main
@@ -13,34 +14,38 @@ import requests
 
 def download_youtube_video(url):
     yt = YouTube(url)
-    video = yt.streams.get_highest_resolution()
-    # video = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
-    print('Downloading video: ' + video.title)
+    print('Downloading video: ' + yt.title)
 
     # Create a folder called 'videos' if it does not exist
     if not os.path.exists('videos'):
         os.makedirs('videos')
 
     # Create a folder with the video title inside the "videos" folder
-    video_folder = os.path.join("videos", video.title)
+    video_folder = os.path.join("videos", yt.title)
     if not os.path.exists(video_folder):
         os.makedirs(video_folder)
 
-    # Download the video to the video folder
-    video.download(output_path=video_folder)
-    video_path = os.path.join(video_folder, video.default_filename)
-    print('Download complete: ' + video_path)
-    print(f'File size: {str(video.filesize/1e6)} mb')
+    # Download the video using yt-dlp
+    output_filename = os.path.join(video_folder, f"{yt.title}.%(ext)s")
+    youtube_dl_command = f"yt-dlp -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]' --merge-output-format mp4 -o \"{output_filename}\" {url}"
+    subprocess.run(youtube_dl_command, shell=True, check=True, capture_output=True)
+
+    # Find the downloaded video file
+    for file in os.listdir(video_folder):
+        if file.endswith(".mp4"):
+            downloaded_video_path = os.path.join(video_folder, file)
+            break
+
+    print('Download complete: ' + downloaded_video_path)
+    print(f'File size: {os.path.getsize(downloaded_video_path)/1e6} mb')
+        
+    # Download the thumbnail using pythumb
+    thumbnail = Thumbnail(url)
+    thumbnail.fetch()
+    thumbnail.save(dir=video_folder, filename='thumbnail', overwrite=True)
+    print(f'Thumbnail saved at: {video_folder}')
     
-    # Download the thumbnail
-    thumbnail_url = yt.thumbnail_url
-    response = requests.get(thumbnail_url)
-    thumbnail_file = os.path.join(video_folder, "thumbnail.jpg")
-    with open(thumbnail_file, "wb") as f:
-        f.write(response.content)
-    print(f'Thumbnail saved at: {thumbnail_file}')
-    
-    return video_path
+    return downloaded_video_path
  
 def segments_to_srt(segs):
     text = []

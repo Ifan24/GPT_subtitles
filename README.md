@@ -8,15 +8,9 @@ note: Embedding the subtitle into the video is not working yet, because some bug
 
 
 # Requirements
+
 - Python 3.9 or later
 - GPU (recommended for better performance)
-
-The following Python packages:
-- pytube
-- whisper
-- transformers
-- tqdm
-- requests
 
 Additionally, when running the script for first time, it will download the following pre-trained models:
 
@@ -61,6 +55,6 @@ The script will generate the following output files in the same directory as the
 # Google Colab Example
 You can also try out this script using a Google Colab notebook. Click the link below to access the example:
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1XDLFlgew9BzUqNpTv_kq0HNocTNOSekP?usp=sharing]
+https://colab.research.google.com/drive/1XDLFlgew9BzUqNpTv_kq0HNocTNOSekP?usp=sharing
 
 Follow the instructions in the notebook to download the necessary packages and models, and to run the script on your desired YouTube video or local video file.
