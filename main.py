@@ -24,11 +24,17 @@ def download_youtube_video(url):
     video_folder = os.path.join("videos", yt.title)
     if not os.path.exists(video_folder):
         os.makedirs(video_folder)
+        
+    # Download the thumbnail using pythumb
+    thumbnail = Thumbnail(url)
+    thumbnail.fetch()
+    thumbnail.save(dir=video_folder, filename='thumbnail', overwrite=True)
+    print(f'Thumbnail saved at: {video_folder}')
 
     # Download the video using yt-dlp
     output_filename = os.path.join(video_folder, f"{yt.title}.%(ext)s")
     youtube_dl_command = f"yt-dlp -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]' --merge-output-format mp4 -o \"{output_filename}\" {url}"
-    subprocess.run(youtube_dl_command, shell=True, check=True, capture_output=True)
+    subprocess.run(youtube_dl_command, shell=True, check=True)
 
     # Find the downloaded video file
     for file in os.listdir(video_folder):
@@ -38,12 +44,6 @@ def download_youtube_video(url):
 
     print('Download complete: ' + downloaded_video_path)
     print(f'File size: {os.path.getsize(downloaded_video_path)/1e6} mb')
-        
-    # Download the thumbnail using pythumb
-    thumbnail = Thumbnail(url)
-    thumbnail.fetch()
-    thumbnail.save(dir=video_folder, filename='thumbnail', overwrite=True)
-    print(f'Thumbnail saved at: {video_folder}')
     
     return downloaded_video_path
  
