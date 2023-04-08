@@ -163,7 +163,7 @@ def combine_translated(segs, text_translated):
     return comb
 
 
-def add_dual_subtitles(video_path, eng_transcript, translated_transcript, target_language):
+def add_dual_subtitles(video_path, eng_transcript, translated_transcript):
 
     print("Combining subtitles...")
     segs_tr = copy.deepcopy(eng_transcript['segments'])
@@ -222,7 +222,7 @@ if __name__ == "__main__":
     parser.add_argument('--youtube_url', help='The URL of the YouTube video.', type=str)
     parser.add_argument('--local_video', help='The path to the local video file.', type=str)
     parser.add_argument('--target_language', help='The target language for translation.', default='zh')
-    parser.add_argument("--model", help="""Choose one of the Whisper model""", default='small', type=str)
+    parser.add_argument("--model", help="""Choose one of the Whisper model""", default='small', type=str, choices=['tiny', 'base', 'small', 'medium', 'large'])
     # parser.add_argument("--font_path", help="""The path to the local font file for the target language.""", default='msyh.ttc', type=str)
     
     args = parser.parse_args()
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     save_translated_srt(segs_tr, translated_transcript, video_filename, args.target_language)
 
     # Add dual subtitles to the video
-    add_dual_subtitles(video_filename, english_transcript, translated_transcript, args.target_language)
+    # add_dual_subtitles(video_filename, english_transcript, translated_transcript)
 
     # Remove the original downloaded video file
     # os.remove(video_filename)

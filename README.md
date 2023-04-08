@@ -14,7 +14,7 @@ note: Embedding the subtitle into the video is not working yet, because some bug
 
 Additionally, when running the script for first time, it will download the following pre-trained models:
 
-- Whisper Model (small): ~461 MB
+- [Whisper Model](https://github.com/openai/whisper) (small): ~461 MB
 - Facebook M2M100 Model: ~2 GB
 
 # Installation
@@ -55,6 +55,6 @@ The script will generate the following output files in the same directory as the
 # Google Colab Example
 You can also try out this script using a Google Colab notebook. Click the link below to access the example:
 
-https://colab.research.google.com/drive/1XDLFlgew9BzUqNpTv_kq0HNocTNOSekP?usp=sharing
+[Colab](https://colab.research.google.com/drive/1XDLFlgew9BzUqNpTv_kq0HNocTNOSekP?usp=sharing)
 
 Follow the instructions in the notebook to download the necessary packages and models, and to run the script on your desired YouTube video or local video file.
