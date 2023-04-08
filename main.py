@@ -1,24 +1,46 @@
 import os
 import argparse
-import pysrt
-from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
 import whisper
 from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer
 from tqdm import tqdm
 from pathlib import Path
 import copy
-from ffpb import main as ffpb_main
+import requests
+# import pysrt
+# from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
+# from ffpb import main as ffpb_main
 
 
 def download_youtube_video(url):
     yt = YouTube(url)
-    video = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
+    video = yt.streams.get_highest_resolution()
+    # video = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
     print('Downloading video: ' + video.title)
-    video.download()
-    print('Download complete: ' + video.default_filename)
+
+    # Create a folder called 'videos' if it does not exist
+    if not os.path.exists('videos'):
+        os.makedirs('videos')
+
+    # Create a folder with the video title inside the "videos" folder
+    video_folder = os.path.join("videos", video.title)
+    if not os.path.exists(video_folder):
+        os.makedirs(video_folder)
+
+    # Download the video to the video folder
+    video.download(output_path=video_folder)
+    video_path = os.path.join(video_folder, video.default_filename)
+    print('Download complete: ' + video_path)
     print(f'File size: {str(video.filesize/1e6)} mb')
     
-    return video.default_filename
+    # Download the thumbnail
+    thumbnail_url = yt.thumbnail_url
+    response = requests.get(thumbnail_url)
+    thumbnail_file = os.path.join(video_folder, "thumbnail.jpg")
+    with open(thumbnail_file, "wb") as f:
+        f.write(response.content)
+    print(f'Thumbnail saved at: {thumbnail_file}')
+    
+    return video_path
  
 def segments_to_srt(segs):
     text = []
@@ -63,9 +85,9 @@ def transcribe_audio(file_path, args):
     options = whisper.DecodingOptions(fp16=False, language=detected_language)
     result = model.transcribe(file_path, **options.__dict__, verbose=False)
     
-    
+        
     srt_sub = segments_to_srt(result['segments'])
-    srt_file = f'{Path(file_path).stem}.srt'
+    srt_file = os.path.join(os.path.dirname(file_path), f'{Path(file_path).stem}.srt')
     with open(srt_file, 'w') as f:
         f.write(srt_sub)
         
@@ -113,28 +135,40 @@ def translate_text(result, target_language):
 
     return texts_tr
 
+def save_translated_srt(segs, translated_text, video_path, target_language):
+    """Save the translated text to a separate SRT file."""
+    for i, s in enumerate(segs):
+        s["text"] = translated_text[i].strip()
 
+    translated_srt = segments_to_srt(segs)
+    translated_srt_file = os.path.join(os.path.dirname(video_path), f'{Path(video_path).stem}_{target_language}.srt')
+    with open(translated_srt_file, 'w') as f:
+        f.write(translated_srt)
+
+    print(f"Translated subtitle is saved at {translated_srt_file}")
+    
+    
 def combine_translated(segs, text_translated):
     "Combine the translated text into the 'text' field of segments."
     comb = []
     for s, tr in zip(segs, text_translated):
-        c = f"{tr.strip()}\\N\\N{s['text'].strip()}\n"
+        c = f"{tr.strip()}\\N{s['text'].strip()}\n"
         s['text'] = c 
         comb.append(s)
     return comb
 
-        
-def add_dual_subtitles(video_path, eng_transcript, translated_transcript, font_file):
+
+def add_dual_subtitles(video_path, eng_transcript, translated_transcript, target_language):
 
     print("Combining subtitles...")
     segs_tr = copy.deepcopy(eng_transcript['segments'])
     segs_tr = combine_translated(segs_tr, translated_transcript)
     sub_tr = segments_to_srt(segs_tr)
-    sub_translated = f'dual_sub_{Path(video_path).stem}.srt'
+    sub_translated = os.path.join(os.path.dirname(video_path), f'{Path(video_path).stem}_dual_sub.srt')
     with open(sub_translated, 'w') as f:
         f.write(sub_tr)
     
-    print(f'translated subtitle is saved at {sub_translated}')
+    print(f'combine translated subtitle is saved at {sub_translated}')
     
     
     # TODO: embed the subtitle into the video is not working yet, because the font in other language is not found
@@ -208,8 +242,12 @@ if __name__ == "__main__":
     # Translate the transcript to another language
     translated_transcript = translate_text(english_transcript, args.target_language)
 
+    # Save the translated subtitles to a separate SRT file
+    segs_tr = copy.deepcopy(english_transcript['segments'])
+    save_translated_srt(segs_tr, translated_transcript, video_filename, args.target_language)
+
     # Add dual subtitles to the video
-    add_dual_subtitles(video_filename, english_transcript, translated_transcript, args.font_path)
+    add_dual_subtitles(video_filename, english_transcript, translated_transcript, args.target_language)
 
     # Remove the original downloaded video file
     # os.remove(video_filename)
