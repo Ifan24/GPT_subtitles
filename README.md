@@ -4,7 +4,24 @@
 
 This project is a Python script that downloads a YouTube video (or uses a local video file), transcribes it, translates the transcript into a target language, and generates a video with dual subtitles (original and translated). The transcription and translation are powered by the Whisper model and the M2M100 model, respectively.
 
-note: Embedding the subtitle into the video is not working yet, because some bugs causing the font in non-english is not found
+note: Embedding the subtitle into the video is not working yet, because some bugs are causing the font in non-English to be not found, for now, it would only generate a dual-language srt file
+
+
+# Requirements
+- Python 3.9 or later
+- GPU (recommended for better performance)
+
+The following Python packages:
+- pytube
+- whisper
+- transformers
+- tqdm
+- requests
+
+Additionally, when running the script for first time, it will download the following pre-trained models:
+
+- Whisper Model (small): ~461 MB
+- Facebook M2M100 Model: ~2 GB
 
 # Installation
 1. Clone this repository.
@@ -12,7 +29,7 @@ note: Embedding the subtitle into the video is not working yet, because some bug
 
 # Usage
 ```
-python dual_subtitles.py [--youtube_url YOUTUBE_URL] [--local_video LOCAL_VIDEO] [--target_language TARGET_LANGUAGE] [--model MODEL] [--font_path FONT_PATH]
+python main.py [--youtube_url YOUTUBE_URL] [--local_video LOCAL_VIDEO] [--target_language TARGET_LANGUAGE] [--model MODEL]
 ```
 
 # Arguments
@@ -28,6 +45,22 @@ Note: You must provide either --youtube_url or --local_video, but not both.
 
 # Example
 ```
-python dual_subtitles.py --youtube_url https://www.youtube.com/watch?v=EXAMPLE --target_language zh --model small
+python main.py --youtube_url https://www.youtube.com/watch?v=EXAMPLE
 ```
-This will download the specified YouTube video, transcribe it, translate the transcript into Chinese, and generate a video with dual subtitles (English and Chinese). The output video will be saved in the same directory as the original video with the prefix dual_sub_.
+
+The script will generate the following output files in the same directory as the input video:
+
+- An SRT file containing the original transcribed subtitles.
+- An SRT file containing the translated subtitles.
+- An SRT file containing the combined dual subtitles.
+- A video file with embedded dual subtitles (not yet work).
+
+<!-- This will download the specified YouTube video, transcribe it, translate the transcript into Chinese, and generate a video with dual subtitles (English and Chinese). The output video will be saved in the same directory as the original video with the postfix _dual_sub. -->
+
+
+# Google Colab Example
+You can also try out this script using a Google Colab notebook. Click the link below to access the example:
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1XDLFlgew9BzUqNpTv_kq0HNocTNOSekP?usp=sharing]
+
+Follow the instructions in the notebook to download the necessary packages and models, and to run the script on your desired YouTube video or local video file.
