@@ -7,6 +7,8 @@ from pathlib import Path
 import copy
 from pythumb import Thumbnail
 import subprocess
+from googletrans import Translator
+
 # import pysrt
 # from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
 # from ffpb import main as ffpb_main
@@ -87,7 +89,7 @@ def transcribe_audio(file_path, args):
     print(f"Detected language: {detected_language}")
     
     print("Transcribing audio...")
-    options = whisper.DecodingOptions(fp16=False, language=detected_language)
+    options = whisper.DecodingOptions(fp16=args.fp16, language=detected_language)
     result = model.transcribe(file_path, **options.__dict__, verbose=False)
     
         
@@ -100,7 +102,24 @@ def transcribe_audio(file_path, args):
     
     
     return result
+    
+def translate_text_with_whisper(file_path, args):
 
+    print("Translating text with Whisper...")
+    model = whisper.load_model(args.model)
+    
+    options = whisper.DecodingOptions(fp16=args.fp16, language=args.target_language)
+    result = model.transcribe(file_path, **options.__dict__, verbose=False)
+    
+    srt_sub = segments_to_srt(result['segments'])
+    srt_file = os.path.join(os.path.dirname(file_path), f'{Path(file_path).stem}_{args.target_language}.srt')
+    with open(srt_file, 'w') as f:
+        f.write(srt_sub)
+        
+    print(f"translated subtitle is saved at {srt_file}")
+    
+    
+    return result
 
 def batch_text(result, gs=32):
     """split list into small groups of group size `gs`."""
@@ -139,6 +158,26 @@ def translate_text(result, target_language):
     texts_tr = batch_translate(texts, tokenizer, model_tr, src_lang=result['language'], tr_lang=target_language)
 
     return texts_tr
+
+def translate_text_google(text, src_lang='en', tr_lang='zh-cn'):
+    translator = Translator()
+    translated = []
+    for t in text:
+        translation = translator.translate(t, src=src_lang, dest=tr_lang)
+        translated.append(translation.text)
+    return translated
+
+def batch_translate_google(texts, src_lang='en', tr_lang='zh-cn'):
+    if tr_lang == 'zh':
+        tr_lang = 'zh-cn'
+    
+    translated = []
+
+    for t in tqdm(texts):
+        tt = translate_text_google(t, src_lang=src_lang, tr_lang=tr_lang)
+        translated += tt
+    return translated
+
 
 def save_translated_srt(segs, translated_text, video_path, target_language):
     """Save the translated text to a separate SRT file."""
@@ -224,7 +263,9 @@ if __name__ == "__main__":
     parser.add_argument('--target_language', help='The target language for translation.', default='zh')
     parser.add_argument("--model", help="""Choose one of the Whisper model""", default='small', type=str, choices=['tiny', 'base', 'small', 'medium', 'large'])
     # parser.add_argument("--font_path", help="""The path to the local font file for the target language.""", default='msyh.ttc', type=str)
-    
+    parser.add_argument('--translation_method', help='The method to use for translation. Options: "m2m100" or "google" or "whisper"', default='m2m100', choices=['m2m100', 'google', 'whisper'])
+    parser.add_argument('--fp16', help='Enable fp16 (mixed precision) decoding. (default: False)', action='store_true')
+
     args = parser.parse_args()
 
     if args.youtube_url and args.local_video:
@@ -244,12 +285,26 @@ if __name__ == "__main__":
     # Transcribe the video
     english_transcript = transcribe_audio(video_filename, args)
 
-    # Translate the transcript to another language
-    translated_transcript = translate_text(english_transcript, args.target_language)
-
-    # Save the translated subtitles to a separate SRT file
-    segs_tr = copy.deepcopy(english_transcript['segments'])
-    save_translated_srt(segs_tr, translated_transcript, video_filename, args.target_language)
+    if args.translation_method == 'whisper':
+        # Translate the transcript to another language using Whisper
+        # it is better to use large model for translating
+        if args.model != 'large':
+            print("Whisper model is not large, it is better to use large model for translating. (default: small)")
+            
+        translated_transcript = translate_text_with_whisper(video_filename, args)
+        
+    else:
+        if args.translation_method == 'm2m100':
+            # Translate the transcript to another language using M2M100
+            translated_transcript = translate_text(english_transcript, args.target_language)
+        elif args.translation_method == 'google':
+            # Translate the transcript to another language using Google Translate
+            texts = batch_text(english_transcript, gs=32)
+            translated_transcript = batch_translate_google(texts, src_lang=english_transcript['language'], tr_lang=args.target_language)
+    
+        # Save the translated subtitles to a separate SRT file
+        segs_tr = copy.deepcopy(english_transcript['segments'])
+        save_translated_srt(segs_tr, translated_transcript, video_filename, args.target_language)
 
     # Add dual subtitles to the video
     # add_dual_subtitles(video_filename, english_transcript, translated_transcript)

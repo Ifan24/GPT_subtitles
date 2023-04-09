@@ -4,7 +4,7 @@
 
 This project is a Python script that downloads a YouTube video (or uses a local video file), transcribes it, translates the transcript into a target language, and generates a video with dual subtitles (original and translated). The transcription and translation are powered by the Whisper model and the M2M100 model, respectively.
 
-note: Embedding the subtitle into the video is not working yet, because some bugs are causing the font in non-English to be not found, for now, it would only generate a dual-language srt file
+Note: Embedding the subtitle into the video is not working yet, due to some bugs causing the font in non-English languages to not be found. For now, it will only generate a dual-language SRT file.
 
 
 # Requirements
@@ -15,38 +15,57 @@ note: Embedding the subtitle into the video is not working yet, because some bug
 Additionally, when running the script for first time, it will download the following pre-trained models:
 
 - [Whisper Model](https://github.com/openai/whisper) (small): ~461 MB
-- Facebook M2M100 Model: ~2 GB
+- Facebook M2M100 Model: ~2 GB (Optional, you can also use Google Translate API with googletrans, or Whisper's transcribe)
 
 # Installation
 1. Clone this repository.
 2. Install the required dependencies using ``` pip install -r requirements.txt ```
 
 # Usage
+You can provide either a YouTube URL or a local video file for processing. The script will transcribe the video, translate the transcript, and generate dual subtitles in the form of an SRT file.
+
 ```
-python main.py [--youtube_url YOUTUBE_URL] [--local_video LOCAL_VIDEO] [--target_language TARGET_LANGUAGE] [--model MODEL]
+python main.py --youtube_url [YOUTUBE_URL] --target_language [TARGET_LANGUAGE] --model [WHISPER_MODEL] --translation_method [TRANSLATION_METHOD] [--fp16]
+
 ```
 
 # Arguments
---youtube_url: The URL of the YouTube video to download and process.
 
---local_video: The path to the local video file to process.
+---youtube_url: The URL of the YouTube video.
+
+--local_video: The path to the local video file.
 
 --target_language: The target language for translation (default: 'zh').
 
---model: The Whisper model to use for transcription (default: 'small').
+--model: Choose one of the Whisper models (default: 'small', choices: ['tiny', 'base', 'small', 'medium', 'large']).
+
+--translation_method: The method to use for translation. Options: "m2m100" or "google" or "whisper" (default: 'm2m100', choices: ['m2m100', 'google', 'whisper']).
+
+--fp16: Enable fp16 (mixed precision) decoding (default: False).
+
 
 Note: You must provide either --youtube_url or --local_video, but not both.
 
 # Example
+
+To download a YouTube video, transcribe it, and generate dual subtitles using the M2M100 translation method:
+
 ```
-python main.py --youtube_url https://www.youtube.com/watch?v=EXAMPLE
+python main.py --youtube_url [YOUTUBE_URL] --target_language 'zh' --model 'small' --translation_method 'm2m100'
 ```
+
+To process a local video file, transcribe it, and generate dual subtitles using Whisper's transcribe method (it will download the large Whisper model if it is not already downloaded, and it will be computational expensive to run so it is better to use fp16 decoding):
+
+```
+python main.py --local_video [VIDEO_FILE_PATH] --target_language 'zh' --model 'large' --translation_method 'whisper' --fp16
+```
+
 
 The script will generate the following output files in the same directory as the input video:
 
 - An SRT file containing the original transcribed subtitles.
 - An SRT file containing the translated subtitles.
-- An SRT file containing the combined dual subtitles.
+- An SRT file containing the combined dual subtitles. (having some issues showing the dual subtitles as two lines in the video)
 - A video file with embedded dual subtitles (not yet work).
 
 <!-- This will download the specified YouTube video, transcribe it, translate the transcript into Chinese, and generate a video with dual subtitles (English and Chinese). The output video will be saved in the same directory as the original video with the postfix _dual_sub. -->
