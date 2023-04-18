@@ -66,31 +66,59 @@ def save_translated_subtitles(file_path, translated_content):
     with open(file_path, 'w', encoding='utf-8') as f:
         f.write(translated_content)
 
-def count_blocks(subtitle_string):
+def check_response(subtitle_string):
     if not subtitle_string.endswith('\n'):
         subtitle_string += '\n'
-    return len(re.findall(r'(\d+\n(?:.+\n)+)', subtitle_string))
+    
+    subtitle_blocks = re.findall(r'(\d+\n(?:.+\n)+)', subtitle_string)
+    additional_content = re.sub(r'\d+\n(?:.+\n)+', '', subtitle_string).strip()
+    
+    problematic_blocks = []
+    for block in subtitle_blocks:
+        lines = block.strip().split('\n')
+        if len(lines) > 2:
+            problematic_blocks.append(block)
+            continue
+
+        english_chars = sum(c.isascii() and c.isalpha() for c in lines[1])
+        total_chars = len(lines[1])
+        english_ratio = english_chars / total_chars
+
+        if english_ratio > 0.7:
+            problematic_blocks.append(block)
+    
+    return len(subtitle_blocks), additional_content, problematic_blocks
 
 
-# Translate subtitles mismatch wrapper
+# Translate subtitles check_response wrapper
 def translate_gpt(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, source_language="English", target_language="Chinese", subtitles_length=25, titles="Video Title not found",):
     
     translated_subtitles, used_dollars = send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, source_language=source_language, target_language=target_language, subtitles_length=subtitles_length, titles=titles)
     count = 0
     total_used_dollars = used_dollars
-    while count_blocks(translated_subtitles) != subtitles_length and count < 3:
-        print(f"Warning: Mismatch in the number of lines, retry count {count}...")
-        translated_subtitles, used_dollars = send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, source_language=source_language, target_language=target_language, subtitles_length=subtitles_length, titles=titles, mismatch=translated_subtitles)
-        count+=1
+    blocks, additional_content, problematic_blocks = check_response(translated_subtitles)
+    cumulative_warning = ""
+    wasted_dollars = 0
+    while (blocks != subtitles_length or additional_content or problematic_blocks) and count < 5:
+        warning_message = f"Warning: Mismatch in the number of lines ({blocks} != {subtitles_length}), or additional content found ({additional_content}), or problematic blocks ({problematic_blocks}), retry count {count}..."
+        print(warning_message)
+        cumulative_warning = cumulative_warning + warning_message + "\n"
+        translated_subtitles, used_dollars = send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, source_language=source_language, target_language=target_language, subtitles_length=subtitles_length, titles=titles, warning_message=cumulative_warning)
+        count += 1
+        wasted_dollars = total_used_dollars
         total_used_dollars += used_dollars
+        blocks, additional_content, problematic_blocks = check_response(translated_subtitles)
         
-    return translated_subtitles, total_used_dollars, count
+    return translated_subtitles, total_used_dollars, count, wasted_dollars
 
-def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, source_language="English", target_language="Chinese", subtitles_length=25, titles="Video Title not found", mismatch=None):
+
+def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, source_language="English", target_language="Chinese", subtitles_length=25, titles="Video Title not found", warning_message=None):
+    prompt = ""
+    if warning_message:
+        prompt = f"In a previous request sent to OpenAI, the response is problematic. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without merging lines or altering the original sentence structure, even if it's unfinished. please do not create the subtitles that are not matching the corresponding line and (!!important) make sure that your reply only contain the {subtitles_length} lines, the translated subtitles have the same number of lines ({subtitles_length}) as the source subtitles. Learn from your mistake. Here is the warning message generated based on your previous response:\n{warning_message}\n"
+    
     if prev_subtitle:
-        prompt = f"Previous subtitle: {prev_subtitle}\n"
-    else:
-        prompt = ""
+        prompt += f"Previous subtitle: {prev_subtitle}\n"
 
     if next_subtitle:
         prompt += f"Next subtitle: {next_subtitle}\n"
@@ -98,11 +126,9 @@ def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subt
     if prev_translated_subtitle:
         prompt += f"If you need to merge the subtitles with the previous line, simply repeat the previous translation. Previous translated subtitle: {prev_translated_subtitle}\n"
         
-    prompt += f"Translate the following {source_language} subtitles to {target_language} line by line for the video titled '{titles}'. If a sentence is unfinished, translate the unfinished sentence without merging it with the next line. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without repetition, and maintain the original sentence structure even if it's unfinished. The translated subtitles should have the same number of lines ({subtitles_length}) as the source subtitles, and the numbering should be maintained:\n{subtitles}\n"
+        
+    prompt += f"Translate the following {source_language} subtitles to {target_language} line by line for the video titled '{titles}'. (If a sentence is unfinished, translate the unfinished sentence without merging it with the next line. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without repetition, and maintain the original sentence structure even if it's unfinished. The translated subtitles should have the same number of lines ({subtitles_length}) as the source subtitles, and the numbering should be maintained.) All the previous text is the prompt, here is the subtitles you need to translate:\n{subtitles}\n"
 
-    if mismatch:
-        mismatch_message = f"In a previous request sent to OpenAI, the number of lines in the translated subtitles did not match the number of lines in the source subtitles. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without merging lines or altering the original sentence structure, even if it's unfinished. Here is the previous mismatch response, please do not create the subtitles that are not matching the corresponding line and learn from your mistake:\n{mismatch}\n"
-        prompt = mismatch_message + prompt
 
     # input_data = {
     #     "subtitles": subtitles,
@@ -126,7 +152,7 @@ def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subt
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=messages,
-        temperature=0.3,
+        temperature=0.4,
         top_p=1,
         max_tokens=2048,
     )
@@ -134,15 +160,16 @@ def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subt
     translated_subtitles = response.choices[0].get("message").get("content").encode("utf8").decode()
     print("========Response========\n")
     print(translated_subtitles)
-    print("========End of Response========\n")
     
     used_tokens = response['usage']['total_tokens']
     used_dollars = used_tokens / 1000 * 0.002
+    print(f"Used tokens: {used_tokens}, Used dollars: {used_dollars}")
+    print("========End of Response========\n")
     
     return translated_subtitles, used_dollars
 
     
-def batch_translate_gpt(result, timestamps, src_lang='en', tr_lang='zh', titles='Video Title not found'):
+def batch_translate_gpt(result, timestamps, batch_size, src_lang='en', tr_lang='zh', titles='Video Title not found'):
     if tr_lang == "zh":
         tr_lang = "Simplified Chinese"
     if src_lang == 'en':
@@ -151,18 +178,24 @@ def batch_translate_gpt(result, timestamps, src_lang='en', tr_lang='zh', titles=
     translated = []
     total_dollars = 0
     number_of_retry = 0
+    total_wasted_dollars = 0
     prev_translated_subtitle = None
     for i, t in enumerate(tqdm(result)):
         prev_subtitle = result[i-1] if i > 0 else None
         next_subtitle = result[i+1] if i < len(result) - 1 else None
-        tt, used_dollars, retry_count = translate_gpt(t, prev_subtitle, next_subtitle, prev_translated_subtitle, source_language=src_lang, target_language=tr_lang, subtitles_length=count_blocks(t), titles=titles)
+        tt, used_dollars, retry_count, wasted_dollars = translate_gpt(t, prev_subtitle, next_subtitle, prev_translated_subtitle, source_language=src_lang, target_language=tr_lang, subtitles_length=batch_size, titles=titles)
         prev_translated_subtitle = tt
         tt_merged = merge_subtitles_with_timestamps(tt, timestamps[i])
         total_dollars += used_dollars
         number_of_retry += retry_count
+        total_wasted_dollars += wasted_dollars
         print("========Batch summary=======\n")
         print(f"total dollars used: {total_dollars:.3f}\n")
         print(f"total number of retry: {number_of_retry}\n")
+        print(f"total wasted dollars: {total_wasted_dollars:.3f}\n")
+        print("==============\n")
+        print(t)
+        print("==============\n")
         print(tt_merged)
         print("========End of Batch summary=======\n")
         translated.append(tt_merged)
@@ -172,6 +205,7 @@ def batch_translate_gpt(result, timestamps, src_lang='en', tr_lang='zh', titles=
     print("========Translate summary=======\n")
     print(f"total dollars used: {total_dollars:.3f}\n")
     print(f"total number of retry: {number_of_retry}\n")
+    print(f"total wasted dollars: {total_wasted_dollars:.3f}\n")
     print("========End of Translate summary=======\n")
     return translated
 
@@ -179,12 +213,12 @@ def batch_translate_gpt(result, timestamps, src_lang='en', tr_lang='zh', titles=
     
 # Main function
 def main():
-    input_file = 'videos/4090 ITX Overkill – New Dan C4-SFX/4090 ITX Overkill – New Dan C4-SFX.srt'
-    output_file = "videos/4090 ITX Overkill – New Dan C4-SFX/4090 ITX Overkill – New Dan C4-SFX_zh_gpt1.srt"
-    
-    subtitles_batch, timestamps_batch = load_subtitles(input_file, batch_size=2)
+    input_file = 'videos/Our Tiger Bass are Spawning!/Our Tiger Bass are Spawning!.srt'
+    output_file = "videos/Our Tiger Bass are Spawning!/Our Tiger Bass are Spawning!_zh_gpt.srt"
+    batch_size = 2
+    subtitles_batch, timestamps_batch = load_subtitles(input_file, batch_size=batch_size)
     # print(subtitles_batch)
-    translated_subtitles = batch_translate_gpt(subtitles_batch, timestamps_batch)
+    translated_subtitles = batch_translate_gpt(subtitles_batch, timestamps_batch, batch_size)
     save_translated_subtitles(output_file, translated_subtitles)
 if __name__ == "__main__":
     main()
