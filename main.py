@@ -1,6 +1,5 @@
 import os
 import argparse
-import whisperx
 import whisper
 from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer
 from tqdm import tqdm
@@ -95,20 +94,6 @@ def transcribe_audio(file_path, whisper_model):
     options = whisper.DecodingOptions(fp16=False, language=detected_language)
     result = model.transcribe(file_path, **options.__dict__, verbose=False)
     
-    
-    print("Aligning transcript...")
-    # load alignment model and metadata
-    model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=model.device)
-    
-    # align whisper output
-    result_aligned = whisperx.align(result["segments"], model_a, metadata, file_path, model.device)
-    
-    # print(result_aligned["segments"]) # after alignment
-    print(result_aligned["word_segments"]) # after alignment
-    result_aligned["language"] = result["language"]
-    
-    result = result_aligned
-    
     srt_sub = segments_to_srt(result['segments'])
     srt_file = os.path.join(os.path.dirname(file_path), f'{Path(file_path).stem}.srt')
     with open(srt_file, 'w') as f:
@@ -192,60 +177,6 @@ def batch_translate_google(result, src_lang='en', tr_lang='zh-cn'):
         tt = translate_text_google(t, src_lang=src_lang, tr_lang=tr_lang)
         translated += tt
     return translated
-
-# def batch_translate_gpt(result, src_lang='en', tr_lang='zh', titles='Video Title'):
-#     # TODO: need a better way to handle this
-#     if tr_lang == "zh":
-#         tr_lang = "Simplified Chinese"
-    
-#     if src_lang == 'en':
-#         src_lang = 'English'
-        
-#     texts = batch_text(result, gs=8)
-#     translated = []
-
-#     for t in tqdm(texts):
-#         # preprocessed = preprocess_text(' '.join(t), lang=src_lang)
-#         text = join_as_numbered_list(t)
-#         tt = translate_gpt(text, source_language=src_lang, target_language=tr_lang, subtitles_length=len(t), titles=titles)
-#         translated += tt
-#     return translated
-    
-
-# def join_as_numbered_list(lst):
-#     numbered_list = ""
-#     for i, item in enumerate(lst, start=1):
-#         numbered_list += f"{i}. {item}\n"
-#     return numbered_list
-
-# def split_numbered_list(text):
-#     pattern = r'\d+\.\s*'
-#     list_items = re.split(pattern, text)[1:]  # Ignore the first empty string
-#     return list_items
-
-# # Translate subtitles
-# def translate_gpt(subtitles, source_language="English", target_language="Chinese", subtitles_length=25, titles="Video Title"):
-        
-#     prompt = f"Translate the following {source_language} subtitles to {target_language} for the video titled '{titles}'. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, and do not combine any lines. The translated subtitles should have the same number of lines ({subtitles_length}) as the source subtitles, and the numbering should be maintained:\n{subtitles}\n"
-#     print(prompt)
-
-#     messages = [
-#         {"role": "system", "content": f"You are a helpful assistant that translates subtitles from {source_language} to {target_language}."},
-#         {"role": "user", "content": prompt}
-#     ]
-
-#     response = openai.ChatCompletion.create(
-#         model="gpt-3.5-turbo",
-#         messages=messages,
-#         temperature=0.5,
-#         max_tokens=2048,
-#     )
-    
-    
-#     translated_subtitles = response.choices[0].get("message").get("content").encode("utf8").decode()
-#     print("===============\n")
-#     print(translated_subtitles)
-#     return split_numbered_list(translated_subtitles)
     
 def save_translated_srt(segs, translated_text, video_path, target_language):
     """Save the translated text to a separate SRT file."""

@@ -16,7 +16,6 @@ Additionally, when running the script for first time, it will download the follo
 
 - [Whisper Model](https://github.com/openai/whisper) (small): ~461 MB
 - Facebook M2M100 Model: ~2 GB (Optional, you can also use Google Translate API with googletrans, or Whisper's transcribe)
-- [WhisperX model](https://github.com/m-bain/whisperX) ~360 MB
 
 # Installation
 1. Clone this repository.
