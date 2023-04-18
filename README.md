@@ -1,6 +1,6 @@
 # Dual Subtitles for Video
 
-下载 YouTube 视频（或提供您自己的视频）并使用 Whisper 在视频中嵌入双字幕
+下载 YouTube 视频（或提供您自己的视频）并使用 Whisper 生成双语字幕
 
 This project is a Python script that downloads a YouTube video (or uses a local video file), transcribes it, translates the transcript into a target language, and generates a video with dual subtitles (original and translated). The transcription and translation are powered by the Whisper model and the M2M100 model, respectively.
 
@@ -16,6 +16,7 @@ Additionally, when running the script for first time, it will download the follo
 
 - [Whisper Model](https://github.com/openai/whisper) (small): ~461 MB
 - Facebook M2M100 Model: ~2 GB (Optional, you can also use Google Translate API with googletrans, or Whisper's transcribe)
+- [WhisperX model](https://github.com/m-bain/whisperX) ~360 MB
 
 # Installation
 1. Clone this repository.
@@ -25,7 +26,7 @@ Additionally, when running the script for first time, it will download the follo
 You can provide either a YouTube URL or a local video file for processing. The script will transcribe the video, translate the transcript, and generate dual subtitles in the form of an SRT file.
 
 ```
-python main.py --youtube_url [YOUTUBE_URL] --target_language [TARGET_LANGUAGE] --model [WHISPER_MODEL] --translation_method [TRANSLATION_METHOD] [--fp16]
+python main.py --youtube_url [YOUTUBE_URL] --target_language [TARGET_LANGUAGE] --model [WHISPER_MODEL] --translation_method [TRANSLATION_METHOD]
 
 ```
 
@@ -41,8 +42,6 @@ python main.py --youtube_url [YOUTUBE_URL] --target_language [TARGET_LANGUAGE] -
 
 --translation_method: The method to use for translation. Options: "m2m100" or "google" or "whisper" (default: 'm2m100', choices: ['m2m100', 'google', 'whisper']).
 
---fp16: Enable fp16 (mixed precision) decoding (default: False).
-
 
 Note: You must provide either --youtube_url or --local_video, but not both.
 
@@ -54,10 +53,10 @@ To download a YouTube video, transcribe it, and generate dual subtitles using th
 python main.py --youtube_url [YOUTUBE_URL] --target_language 'zh' --model 'small' --translation_method 'm2m100'
 ```
 
-To process a local video file, transcribe it, and generate dual subtitles using Whisper's transcribe method (it will download the large Whisper model if it is not already downloaded, and it will be computational expensive to run so it is better to use fp16 decoding):
+To process a local video file, transcribe it, and generate dual subtitles using Whisper's transcribe method (it will download the large Whisper model if it is not already downloaded):
 
 ```
-python main.py --local_video [VIDEO_FILE_PATH] --target_language 'zh' --model 'large' --translation_method 'whisper' --fp16
+python main.py --local_video [VIDEO_FILE_PATH] --target_language 'zh' --model 'large' --translation_method 'whisper'
 ```
 
 

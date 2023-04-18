@@ -1,5 +1,6 @@
 import os
 import argparse
+import whisperx
 import whisper
 from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer
 from tqdm import tqdm
@@ -10,8 +11,6 @@ import subprocess
 from googletrans import Translator
 from pytube import YouTube
 
-# import spacy
-# spacy.prefer_gpu()
 # import pysrt
 # from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
 # from ffpb import main as ffpb_main
@@ -39,7 +38,7 @@ def download_youtube_video(url):
     # Download the video using yt-dlp
     output_filename = os.path.join(video_folder, f"{yt.title}.%(ext)s")
     youtube_dl_command = f"yt-dlp -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]' --merge-output-format mp4 -o \"{output_filename}\" {url}"
-    completed_process = subprocess.run(youtube_dl_command, shell=True, check=True, text=True)
+    completed_process = subprocess.run(youtube_dl_command, shell=True, check=True, text=True, capture_output=True)
 
     # Find the downloaded video file
     for file in os.listdir(video_folder):
@@ -96,7 +95,20 @@ def transcribe_audio(file_path, whisper_model):
     options = whisper.DecodingOptions(fp16=False, language=detected_language)
     result = model.transcribe(file_path, **options.__dict__, verbose=False)
     
-        
+    
+    print("Aligning transcript...")
+    # load alignment model and metadata
+    model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=model.device)
+    
+    # align whisper output
+    result_aligned = whisperx.align(result["segments"], model_a, metadata, file_path, model.device)
+    
+    # print(result_aligned["segments"]) # after alignment
+    print(result_aligned["word_segments"]) # after alignment
+    result_aligned["language"] = result["language"]
+    
+    result = result_aligned
+    
     srt_sub = segments_to_srt(result['segments'])
     srt_file = os.path.join(os.path.dirname(file_path), f'{Path(file_path).stem}.srt')
     with open(srt_file, 'w') as f:
@@ -147,11 +159,9 @@ def _translate(text, tokenizer, model_tr, src_lang='en', tr_lang='zh'):
 def batch_translate(texts, tokenizer, model_tr, src_lang='en', tr_lang='zh'):
     translated = []
     for t in tqdm(texts):
-        # preprocessed = preprocess_text(' '.join(t), lang=src_lang)
         tt = _translate(t, tokenizer, model_tr, src_lang=src_lang, tr_lang=tr_lang)
         translated += tt
     return translated
-
 
 def translate_text(result, target_language):
     print("Translating text...")
@@ -171,19 +181,72 @@ def translate_text_google(text, src_lang='en', tr_lang='zh-cn'):
         translated.append(translation.text)
     return translated
 
-def batch_translate_google(texts, src_lang='en', tr_lang='zh-cn'):
+def batch_translate_google(result, src_lang='en', tr_lang='zh-cn'):
     if tr_lang == 'zh':
         tr_lang = 'zh-cn'
     
+    texts = batch_text(result, gs=25)
     translated = []
 
     for t in tqdm(texts):
-        # preprocessed = preprocess_text(' '.join(t), lang=src_lang)
         tt = translate_text_google(t, src_lang=src_lang, tr_lang=tr_lang)
         translated += tt
     return translated
 
+# def batch_translate_gpt(result, src_lang='en', tr_lang='zh', titles='Video Title'):
+#     # TODO: need a better way to handle this
+#     if tr_lang == "zh":
+#         tr_lang = "Simplified Chinese"
+    
+#     if src_lang == 'en':
+#         src_lang = 'English'
+        
+#     texts = batch_text(result, gs=8)
+#     translated = []
 
+#     for t in tqdm(texts):
+#         # preprocessed = preprocess_text(' '.join(t), lang=src_lang)
+#         text = join_as_numbered_list(t)
+#         tt = translate_gpt(text, source_language=src_lang, target_language=tr_lang, subtitles_length=len(t), titles=titles)
+#         translated += tt
+#     return translated
+    
+
+# def join_as_numbered_list(lst):
+#     numbered_list = ""
+#     for i, item in enumerate(lst, start=1):
+#         numbered_list += f"{i}. {item}\n"
+#     return numbered_list
+
+# def split_numbered_list(text):
+#     pattern = r'\d+\.\s*'
+#     list_items = re.split(pattern, text)[1:]  # Ignore the first empty string
+#     return list_items
+
+# # Translate subtitles
+# def translate_gpt(subtitles, source_language="English", target_language="Chinese", subtitles_length=25, titles="Video Title"):
+        
+#     prompt = f"Translate the following {source_language} subtitles to {target_language} for the video titled '{titles}'. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, and do not combine any lines. The translated subtitles should have the same number of lines ({subtitles_length}) as the source subtitles, and the numbering should be maintained:\n{subtitles}\n"
+#     print(prompt)
+
+#     messages = [
+#         {"role": "system", "content": f"You are a helpful assistant that translates subtitles from {source_language} to {target_language}."},
+#         {"role": "user", "content": prompt}
+#     ]
+
+#     response = openai.ChatCompletion.create(
+#         model="gpt-3.5-turbo",
+#         messages=messages,
+#         temperature=0.5,
+#         max_tokens=2048,
+#     )
+    
+    
+#     translated_subtitles = response.choices[0].get("message").get("content").encode("utf8").decode()
+#     print("===============\n")
+#     print(translated_subtitles)
+#     return split_numbered_list(translated_subtitles)
+    
 def save_translated_srt(segs, translated_text, video_path, target_language):
     """Save the translated text to a separate SRT file."""
     for i, s in enumerate(segs):
@@ -265,15 +328,6 @@ def add_dual_subtitles(video_path, eng_transcript, translated_transcript):
     # # ]
     # ffpb_main(argv=ffmpeg_args)
 
-# def preprocess_text(text, lang='en'):
-#     nlp = spacy.load("en_core_web_sm")
-#     doc = nlp(text)
-#     preprocessed = []
-#     for sent in doc.sents:
-#         preprocessed.append(sent.text.capitalize())
-#     return preprocessed
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Download YouTube video, transcribe, translate and add dual subtitles.')
     parser.add_argument('--youtube_url', help='The URL of the YouTube video.', type=str)
@@ -281,7 +335,7 @@ if __name__ == "__main__":
     parser.add_argument('--target_language', help='The target language for translation.', default='zh')
     parser.add_argument("--model", help="""Choose one of the Whisper model""", default='small', type=str, choices=['tiny', 'base', 'small', 'medium', 'large'])
     # parser.add_argument("--font_path", help="""The path to the local font file for the target language.""", default='msyh.ttc', type=str)
-    parser.add_argument('--translation_method', help='The method to use for translation. Options: "m2m100" or "google" or "whisper"', default='m2m100', choices=['m2m100', 'google', 'whisper'])
+    parser.add_argument('--translation_method', help='The method to use for translation. Options: "m2m100" or "google" or "whisper" or "gpt"', default='m2m100', choices=['m2m100', 'google', 'whisper', 'gpt'])
     # parser.add_argument('--fp16', help='Enable fp16 (mixed precision) decoding. (default: False)', action='store_true')
 
     args = parser.parse_args()
@@ -298,6 +352,9 @@ if __name__ == "__main__":
     else:
         print("Local video file: " + args.local_video)
         video_filename = args.local_video
+
+    filename_w_ext = os.path.basename(video_filename)
+    filename, file_extension = os.path.splitext(filename_w_ext)
 
     # Transcribe the video
     english_transcript = transcribe_audio(video_filename, args.model)
@@ -316,9 +373,14 @@ if __name__ == "__main__":
             translated_transcript = translate_text(english_transcript, args.target_language)
         elif args.translation_method == 'google':
             # Translate the transcript to another language using Google Translate
-            texts = batch_text(english_transcript, gs=25)
-            translated_transcript = batch_translate_google(texts, src_lang=english_transcript['language'], tr_lang=args.target_language)
-    
+            translated_transcript = batch_translate_google(english_transcript, src_lang=english_transcript['language'], tr_lang=args.target_language)
+        # elif args.translation_method == 'gpt':
+        #     from dotenv import load_dotenv
+        #     load_dotenv()
+        #     import openai
+        #     openai.api_key = os.getenv("OPENAI_API_KEY")
+        #     # Translate the transcript to another language using gpt-3.5 or gpt-4 Translate
+        #     translated_transcript = batch_translate_gpt(english_transcript, src_lang=english_transcript['language'], tr_lang=args.target_language, titles=filename)
         # Save the translated subtitles to a separate SRT file
         segs_tr = copy.deepcopy(english_transcript['segments'])
         save_translated_srt(segs_tr, translated_transcript, video_filename, args.target_language)
