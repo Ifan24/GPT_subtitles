@@ -1,4 +1,5 @@
 import openai
+import json
 import os
 from tqdm import tqdm
 import re
@@ -129,21 +130,25 @@ def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subt
         
     prompt += f"Translate the following {source_language} subtitles to {target_language} line by line for the video titled '{titles}'. (If a sentence is unfinished, translate the unfinished sentence without merging it with the next line. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without repetition, and maintain the original sentence structure even if it's unfinished. The translated subtitles should have the same number of lines ({subtitles_length}) as the source subtitles, and the numbering should be maintained.) All the previous text is the prompt, here is the subtitles you need to translate:\n{subtitles}\n"
 
-
+    # prompt = f"Translate the following {source_language} subtitles to {target_language} line by line for the video titled '{titles}'. If a sentence is unfinished, translate the unfinished sentence without merging it with the next line. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without repetition, and maintain the original sentence structure even if it's unfinished. The translated subtitles should have the same number of lines ({subtitles_length}) as the source subtitles, and the numbering should be maintained. Only Reply with the translation of the value of 'subtitles'"
+    
     # input_data = {
-    #     "subtitles": subtitles,
+    #     "warning_message": warning_message if warning_message else None,
     #     "previous_subtitle": prev_subtitle,
     #     "next_subtitle": next_subtitle,
     #     "source_language": source_language,
     #     "target_language": target_language,
     #     "subtitles_length": subtitles_length,
     #     "titles": titles,
-    #     "mismatch": mismatch_message if mismatch else None
-    # }
+    #     # "prompt": prompt,
+    #     "subtitles": subtitles,
+    # }, 
 
     messages = [
         {"role": "system", "content": f"You are a program responsible for translating subtitles. Your task is to output the specified target language based on the input text. Please do not create the following subtitles on your own. Please do not output any text other than the translation. You will receive the subtitles as an array that needs to be translated, as well as the previous translation results and next subtitle. If you need to merge the subtitles with the following line, simply repeat the translation.\n"},
         {"role": "user", "content": prompt}
+        # {"role": "system", "content": f"You are a program responsible for translate the following {source_language} subtitles to {target_language} line by line for the video titled '{titles}'. Your task is to output the specified target language based on the input text. Please do not create the following subtitles on your own. Please do not output any text other than the translation. You will receive a JSON object that contains following keys ('warning_message', 'previous_subtitle', 'next_subtitle', 'source_language', 'target_language', 'subtitles_length', 'titles', 'prompt', 'subtitles'), but you only need to translate the value of key 'subtitles', and reply with the translation only. You will have access to the previous translation results and next few lines of subtitle. If you need to merge the subtitles with the following line, simply repeat the translation. If a sentence is unfinished, translate the unfinished sentence without merging it with the next line. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without repetition, and maintain the original sentence structure even if it's unfinished. The translated subtitles should have the same number of lines ({subtitles_length}) as the source subtitles, and the numbering should be maintained.\n"},
+        # {"role": "user", "content": json.dumps(input_data)}
     ]
     print("========Messages========\n")
     print(messages)
@@ -156,7 +161,7 @@ def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subt
         top_p=1,
         max_tokens=2048,
     )
-
+    # translated_subtitles = response.choices[0].get("message").get("content").replace('\\n', '\n')
     translated_subtitles = response.choices[0].get("message").get("content").encode("utf8").decode()
     print("========Response========\n")
     print(translated_subtitles)

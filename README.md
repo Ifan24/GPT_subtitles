@@ -29,6 +29,10 @@ python main.py --youtube_url [YOUTUBE_URL] --target_language [TARGET_LANGUAGE] -
 
 ```
 
+You can also use GPT-3.5 to translate the transcript. You will need to provide your own API key in .env file.
+
+[showcase of GPT-3.5 translation](https://www.bilibili.com/video/BV1Qc411n7pE/)
+
 # Arguments
 
 ---youtube_url: The URL of the YouTube video.
