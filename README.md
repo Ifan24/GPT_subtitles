@@ -29,7 +29,31 @@ python main.py --youtube_url [YOUTUBE_URL] --target_language [TARGET_LANGUAGE] -
 
 ```
 
-You can also use GPT-3.5 to translate the transcript. You will need to provide your own API key in .env file.
+## Subtitle Translation using GPT-3.5 （translate_gpt.py）
+
+This script translates subtitles using OpenAI's GPT-3.5 language model. It requires an OpenAI API key to function. In some cases, GPT-based translation might produce better results compared to Google Translate, especially when dealing with context-specific translations or idiomatic expressions. This script aims to provide an alternative method for translating subtitles when traditional translation services like Google Translate do not produce satisfactory results.
+### Setup
+1. Sign up for an API key from OpenAI at https://platform.openai.com/account/api-keys
+2. Once you have the API key, create a file named .env in the same directory as the script.
+3. Add the following line to the .env file:
+```
+OPENAI_API_KEY=your_api_key_here
+```
+Replace your_api_key_here with the API key you obtained from OpenAI.
+
+### Usage
+
+```
+python translate_gpt.py --input_file INPUT_FILE_PATH [--batch_size BATCH_SIZE] [--target_language TARGET_LANGUAGE]
+
+```
+
+### Arguments
+
+- --input_file: The path to the input subtitle file. (Required)
+- --batch_size: The number of subtitles to process in a batch. (Optional, default: 2)
+- --target_language: The target language for translation. (Optional, default: 'zh' for Simplified Chinese)
+
 
 [showcase of GPT-3.5 translation](https://www.bilibili.com/video/BV1Qc411n7pE/)
 
@@ -43,7 +67,7 @@ You can also use GPT-3.5 to translate the transcript. You will need to provide y
 
 --model: Choose one of the Whisper models (default: 'small', choices: ['tiny', 'base', 'small', 'medium', 'large']).
 
---translation_method: The method to use for translation. Options: "m2m100" or "google" or "whisper" (default: 'm2m100', choices: ['m2m100', 'google', 'whisper']).
+--translation_method: The method to use for translation. (default: 'm2m100', choices: ['m2m100', 'google', 'whisper', 'gpt']).
 
 
 Note: You must provide either --youtube_url or --local_video, but not both.
@@ -53,10 +77,10 @@ Note: You must provide either --youtube_url or --local_video, but not both.
 To download a YouTube video, transcribe it, and generate dual subtitles using the M2M100 translation method:
 
 ```
-python main.py --youtube_url [YOUTUBE_URL] --target_language 'zh' --model 'small' --translation_method 'm2m100'
+python main.py --youtube_url [YOUTUBE_URL] --target_language 'zh' --model 'small' --translation_method 'google'
 ```
 
-To process a local video file, transcribe it, and generate dual subtitles using Whisper's transcribe method (it will download the large Whisper model if it is not already downloaded):
+To process a local video file, transcribe it, and generate dual subtitles using Whisper's transcribe method (you will need to download the large Whisper model if it is not already downloaded):
 
 ```
 python main.py --local_video [VIDEO_FILE_PATH] --target_language 'zh' --model 'large' --translation_method 'whisper'
@@ -67,7 +91,7 @@ The script will generate the following output files in the same directory as the
 
 - An SRT file containing the original transcribed subtitles.
 - An SRT file containing the translated subtitles.
-- An SRT file containing the combined dual subtitles. (having some issues showing the dual subtitles as two lines in the video)
+- An SRT file containing the combined dual subtitles.
 - A video file with embedded dual subtitles (not yet work).
 
 <!-- This will download the specified YouTube video, transcribe it, translate the transcript into Chinese, and generate a video with dual subtitles (English and Chinese). The output video will be saved in the same directory as the original video with the postfix _dual_sub. -->

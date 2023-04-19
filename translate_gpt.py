@@ -3,6 +3,7 @@ import json
 import os
 from tqdm import tqdm
 import re
+import argparse
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -158,8 +159,6 @@ def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subt
         model="gpt-3.5-turbo",
         messages=messages,
         temperature=0.4,
-        top_p=1,
-        max_tokens=2048,
     )
     # translated_subtitles = response.choices[0].get("message").get("content").replace('\\n', '\n')
     translated_subtitles = response.choices[0].get("message").get("content").encode("utf8").decode()
@@ -174,11 +173,11 @@ def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subt
     return translated_subtitles, used_dollars
 
     
-def batch_translate_gpt(result, timestamps, batch_size, src_lang='en', tr_lang='zh', titles='Video Title not found'):
-    if tr_lang == "zh":
-        tr_lang = "Simplified Chinese"
-    if src_lang == 'en':
-        src_lang = 'English'
+def batch_translate_gpt(result, timestamps, batch_size, source_language='en', target_language='zh', titles='Video Title not found'):
+    if target_language == "zh":
+        target_language = "Simplified Chinese"
+    if source_language == 'en':
+        source_language = 'English'
         
     translated = []
     total_dollars = 0
@@ -188,7 +187,7 @@ def batch_translate_gpt(result, timestamps, batch_size, src_lang='en', tr_lang='
     for i, t in enumerate(tqdm(result)):
         prev_subtitle = result[i-1] if i > 0 else None
         next_subtitle = result[i+1] if i < len(result) - 1 else None
-        tt, used_dollars, retry_count, wasted_dollars = translate_gpt(t, prev_subtitle, next_subtitle, prev_translated_subtitle, source_language=src_lang, target_language=tr_lang, subtitles_length=batch_size, titles=titles)
+        tt, used_dollars, retry_count, wasted_dollars = translate_gpt(t, prev_subtitle, next_subtitle, prev_translated_subtitle, source_language=source_language, target_language=target_language, subtitles_length=batch_size, titles=titles)
         prev_translated_subtitle = tt
         tt_merged = merge_subtitles_with_timestamps(tt, timestamps[i])
         total_dollars += used_dollars
@@ -216,14 +215,30 @@ def batch_translate_gpt(result, timestamps, batch_size, src_lang='en', tr_lang='
 
 
     
+def translate_with_gpt(input_file, batch_size, target_language):
+    # Extract the file name without the extension
+    file_name = os.path.splitext(os.path.basename(input_file))[0]
+
+    # Create the output file name
+    output_file = os.path.join(os.path.dirname(input_file), f"{file_name}_{target_language}_gpt.srt")
+    
+    subtitles_batch, timestamps_batch = load_subtitles(input_file, batch_size=batch_size)
+    translated_subtitles = batch_translate_gpt(subtitles_batch, timestamps_batch, batch_size, target_language=target_language, titles=file_name)
+    save_translated_subtitles(output_file, translated_subtitles)
+
 # Main function
 def main():
-    input_file = 'videos/Our Tiger Bass are Spawning!/Our Tiger Bass are Spawning!.srt'
-    output_file = "videos/Our Tiger Bass are Spawning!/Our Tiger Bass are Spawning!_zh_gpt.srt"
-    batch_size = 2
-    subtitles_batch, timestamps_batch = load_subtitles(input_file, batch_size=batch_size)
-    # print(subtitles_batch)
-    translated_subtitles = batch_translate_gpt(subtitles_batch, timestamps_batch, batch_size)
-    save_translated_subtitles(output_file, translated_subtitles)
+    parser = argparse.ArgumentParser(description='Translate subtitles using GPT-3.5')
+    parser.add_argument('--input_file', help='The path to the input subtitle file.', type=str, required=True)
+    # parser.add_argument('--output_file', help='The path to the output subtitle file.', type=str, required=True)
+    parser.add_argument('--batch_size', help='The number of subtitles to process in a batch.', type=int, default=2)
+    parser.add_argument('--target_language', help='The target language for translation.', default='zh')
+    args = parser.parse_args()
+
+    translate_with_gpt(args.input_file, args.batch_size, args.target_language)
+    
+# python translate_gpt.py --input_file 'videos/WHAT LIFEWEAVER EXCELS AT IN OVERWATCH 2/WHAT LIFEWEAVER EXCELS AT IN OVERWATCH 2.srt' > output2.txt
+    
+    
 if __name__ == "__main__":
     main()

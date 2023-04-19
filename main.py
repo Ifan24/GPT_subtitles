@@ -102,7 +102,7 @@ def transcribe_audio(file_path, whisper_model):
     print(f"subtitle is saved at {srt_file}")
     
     
-    return result
+    return result, srt_file
     
 def translate_text_with_whisper(file_path, whisper_model, target_language):
 
@@ -288,36 +288,36 @@ if __name__ == "__main__":
     filename, file_extension = os.path.splitext(filename_w_ext)
 
     # Transcribe the video
-    english_transcript = transcribe_audio(video_filename, args.model)
+    english_transcript, srt_file = transcribe_audio(video_filename, args.model)
 
-    if args.translation_method == 'whisper':
-        # Translate the transcript to another language using Whisper
-        # it is better to use large model for translating
-        if args.model != 'large':
-            print("Whisper model is not large, it is better to use large model for translating. (default: small)")
-            
-        translated_transcript = translate_text_with_whisper(video_filename, args.model, args.target_language)
+    
+    if args.translation_method == 'gpt':
+        from translate_gpt import translate_with_gpt
+        # Translate the transcript to another language using gpt-3.5 or gpt-4 Translate
+        translate_with_gpt(input_file=srt_file, batch_size=2, target_language=args.target_language)
         
     else:
-        if args.translation_method == 'm2m100':
-            # Translate the transcript to another language using M2M100
-            translated_transcript = translate_text(english_transcript, args.target_language)
-        elif args.translation_method == 'google':
-            # Translate the transcript to another language using Google Translate
-            translated_transcript = batch_translate_google(english_transcript, src_lang=english_transcript['language'], tr_lang=args.target_language)
-        # elif args.translation_method == 'gpt':
-        #     from dotenv import load_dotenv
-        #     load_dotenv()
-        #     import openai
-        #     openai.api_key = os.getenv("OPENAI_API_KEY")
-        #     # Translate the transcript to another language using gpt-3.5 or gpt-4 Translate
-        #     translated_transcript = batch_translate_gpt(english_transcript, src_lang=english_transcript['language'], tr_lang=args.target_language, titles=filename)
-        # Save the translated subtitles to a separate SRT file
-        segs_tr = copy.deepcopy(english_transcript['segments'])
-        save_translated_srt(segs_tr, translated_transcript, video_filename, args.target_language)
-
-    # Add dual subtitles to the video
-    add_dual_subtitles(video_filename, english_transcript, translated_transcript)
+        if args.translation_method == 'whisper':
+            # Translate the transcript to another language using Whisper
+            # it is better to use large model for translating
+            if args.model != 'large':
+                print("Whisper model is not large, it is better to use large model for translating. (default: small)")
+                
+            translated_transcript = translate_text_with_whisper(video_filename, args.model, args.target_language)
+        
+        else:
+            if args.translation_method == 'm2m100':
+                # Translate the transcript to another language using M2M100
+                translated_transcript = translate_text(english_transcript, args.target_language)
+            elif args.translation_method == 'google':
+                # Translate the transcript to another language using Google Translate
+                translated_transcript = batch_translate_google(english_transcript, src_lang=english_transcript['language'], tr_lang=args.target_language)
+            # Save the translated subtitles to a separate SRT file
+            segs_tr = copy.deepcopy(english_transcript['segments'])
+            save_translated_srt(segs_tr, translated_transcript, video_filename, args.target_language)
+    
+        # Add dual subtitles to the video
+        add_dual_subtitles(video_filename, english_transcript, translated_transcript)
 
     # Remove the original downloaded video file
     # os.remove(video_filename)
