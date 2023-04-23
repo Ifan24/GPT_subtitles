@@ -2,9 +2,9 @@
 
 下载 YouTube 视频（或提供您自己的视频）并使用 Whisper 生成双语字幕
 
-This project is a Python script that downloads a YouTube video (or uses a local video file), transcribes it, translates the transcript into a target language, and generates a video with dual subtitles (original and translated). The transcription and translation are powered by the Whisper model and the M2M100 model, respectively.
+This project is a Python script that downloads a YouTube video (or uses a local video file), transcribes it, translates the transcript into a target language, and generates a video with dual subtitles (original and translated). The transcription and translation are powered by the Whisper model and the many translation model, respectively.
 
-Note: Embedding the subtitle into the video is not working yet, due to some bugs causing the font in non-English languages to not be found. For now, it will only generate a dual-language SRT file.
+Note: Embedding the subtitles into the video is not working yet, due to some bugs causing the font in non-English languages to not be found. For now, it will only generate a dual-language SRT file.
 
 
 # Requirements
@@ -16,6 +16,7 @@ Additionally, when running the script for first time, it will download the follo
 
 - [Whisper Model](https://github.com/openai/whisper) (small): ~461 MB
 - Facebook M2M100 Model: ~2 GB (Optional, you can also use Google Translate API with googletrans, or Whisper's transcribe)
+- OpenAI API key (Optional, if you want to use GPT-3.5 for subtitle translation)
 
 # Installation
 1. Clone this repository.
@@ -51,11 +52,11 @@ python translate_gpt.py --input_file INPUT_FILE_PATH [--batch_size BATCH_SIZE] [
 ### Arguments
 
 - --input_file: The path to the input subtitle file. (Required)
-- --batch_size: The number of subtitles to process in a batch. (Optional, default: 2)
+- --batch_size: The number of subtitles to process in a batch. (Optional, default: 3)
 - --target_language: The target language for translation. (Optional, default: 'zh' for Simplified Chinese)
 
 
-[showcase of GPT-3.5 translation](https://www.bilibili.com/video/BV1Qc411n7pE/)
+[showcase of GPT-3.5 translation](https://www.bilibili.com/video/BV1xv4y1E7ZD/)
 
 # Arguments
 
@@ -94,7 +95,15 @@ The script will generate the following output files in the same directory as the
 - An SRT file containing the combined dual subtitles.
 - A video file with embedded dual subtitles (not yet work).
 
-<!-- This will download the specified YouTube video, transcribe it, translate the transcript into Chinese, and generate a video with dual subtitles (English and Chinese). The output video will be saved in the same directory as the original video with the postfix _dual_sub. -->
+# Contributing
+Contributions are more than welcome!
+
+
+# TODO
+- [ ] Fix the bug that prevents embedding dual subtitles into the video.
+- [ ] Implement a GUI to make the tool more user-friendly.
+- [ ] Add more robust error handling for GPT-3.5 responses
+- [ ] Explore the possibility of using offline small GPT models, such as [FastChat](https://github.com/lm-sys/FastChat)
 
 
 # Google Colab Example
