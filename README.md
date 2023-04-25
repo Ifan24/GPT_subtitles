@@ -1,10 +1,10 @@
 # Dual Subtitles for Video
 
-下载 YouTube 视频（或提供您自己的视频）并使用 Whisper 生成双语字幕
+下载 YouTube 视频（或提供您自己的视频）并使用 Whisper 和翻译API生成双语字幕
 
-This project is a Python script that downloads a YouTube video (or uses a local video file), transcribes it, translates the transcript into a target language, and generates a video with dual subtitles (original and translated). The transcription and translation are powered by the Whisper model and the many translation model, respectively.
+This project is a Python script that downloads a YouTube video (or uses a local video file), transcribes it, translates the transcript into a target language, and generates a video with dual subtitles (original and translated). The transcription and translation are powered by the Whisper model and the translation API (M2M100, google, GPT3.5), respectively.
 
-Note: Embedding the subtitles into the video is not working yet, due to some bugs causing the font in non-English languages to not be found. For now, it will only generate a dual-language SRT file.
+<!-- Note: Embedding the subtitles into the video is not working yet, due to some bugs causing the font in non-English languages to not be found. For now, it will only generate a dual-language SRT file. -->
 
 
 # Requirements

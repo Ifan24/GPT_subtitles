@@ -68,6 +68,12 @@ def save_translated_subtitles(file_path, translated_content):
     with open(file_path, 'w', encoding='utf-8') as f:
         f.write(translated_content)
 
+def count_blocks(subtitle_string):
+    # Add a newline to the end of the string if it doesn't already have one
+    if not subtitle_string.endswith('\n'):
+        subtitle_string += '\n'
+    return len(re.findall(r'(\d+\n(?:.+\n)+)', subtitle_string))
+    
 def check_response(input_subtitles, translated_subtitles):
     if not translated_subtitles.endswith('\n'):
         translated_subtitles += '\n'
@@ -96,9 +102,9 @@ def check_response(input_subtitles, translated_subtitles):
 
 
 # Translate subtitles check_response wrapper
-def translate_gpt(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, source_language="English", target_language="Chinese", subtitles_length=25, titles="Video Title not found",):
+def translate_gpt(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, target_language="Chinese", subtitles_length=25, titles="Video Title not found",):
     
-    translated_subtitles, used_dollars = send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, source_language=source_language, target_language=target_language, subtitles_length=subtitles_length, titles=titles)
+    translated_subtitles, used_dollars = send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, target_language=target_language, subtitles_length=subtitles_length, titles=titles)
     count = 0
     total_used_dollars = used_dollars
     blocks, additional_content, problematic_blocks = check_response(subtitles, translated_subtitles)
@@ -109,7 +115,7 @@ def translate_gpt(subtitles, prev_subtitle, next_subtitle, prev_translated_subti
         warning_message = f"Warning: Mismatch in the number of lines ({blocks} != {subtitles_length}), or additional content found ({additional_content}), or problematic blocks ({problematic_blocks}), retry count {count}..."
         print(warning_message)
         cumulative_warning = cumulative_warning + warning_message + "\n"
-        translated_subtitles, used_dollars = send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, source_language=source_language, target_language=target_language, subtitles_length=subtitles_length, titles=titles, warning_message=cumulative_warning, prev_response=translated_subtitles)
+        translated_subtitles, used_dollars = send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, target_language=target_language, subtitles_length=subtitles_length, titles=titles, warning_message=cumulative_warning, prev_response=translated_subtitles)
         count += 1
         wasted_dollars = total_used_dollars
         total_used_dollars += used_dollars
@@ -119,31 +125,69 @@ def translate_gpt(subtitles, prev_subtitle, next_subtitle, prev_translated_subti
     return translated_subtitles, total_used_dollars, count, wasted_dollars
 
 
-def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, source_language="English", target_language="Chinese", subtitles_length=25, titles="Video Title not found", warning_message=None, prev_response=None):
+def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, target_language="Chinese", subtitles_length=25, titles="Video Title not found", warning_message=None, prev_response=None):
     prompt = ""
-    # if warning_message:
-    #     prompt = f"In a previous request sent to OpenAI, the response is problematic. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without merging lines or altering the original sentence structure, even if it's unfinished. please do not create the subtitles that are not matching the corresponding line and (!!important) make sure that your reply only contain the {subtitles_length} lines, the translated subtitles have the same number of lines ({subtitles_length}) as the source subtitles. Learn from your mistake. Here is the warning message generated based on your previous response:\n{warning_message}\n\n"
-    #     prompt += f"Previous Response:\n{prev_response}\n\n"
+    if warning_message:
+        prompt = f"In a previous request sent to OpenAI, the response is problematic. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without merging lines or altering the original sentence structure, even if it's unfinished. please do not create the subtitles that are not matching the corresponding line and (!!important) make sure that your reply only contain the {subtitles_length} lines, the translated subtitles have the same number of lines ({subtitles_length}) as the source subtitles. Learn from your mistake. Here is the warning message generated based on your previous response:\n{warning_message}\n\n"
+    #     prompt += f"The following lines are for reference only, Previous Response:\n{prev_response}\n\n"
+        example = """
+    Here is an example of translating English subtitle into Simplified Chinese subtitle:
+    1
+    Let's talk about the messiah of small bean cinema, otherwise known as Wes Anderson.
+    
+    2
+    By now most of you have likely been seduced at one time or another by this man's meticulously
+    
+    3
+    crafted mise-en-scene, intensely symmetrical composition, or quirky, somewhat disaffected
+    
+    4
+    twee characters.
+    
+    5
+    He piqued our interest with Rushmore, dazzled us with Fantastic Mr. Fox, and stole our little
+    
+    6
+    hearts with Moonrise Kingdom.
+    
+    1
+    让我们来谈谈被誉为小豆电影救世主的韦斯·安德森。
+    
+    2
+    到目前为止，你们中的大多数人可能已经被这位导演的精心
+    
+    3
+    制作的布景、高度对称的构图或者古怪、有些冷漠的
+    
+    4
+    小清新角色所吸引过。
+    
+    5
+    他用《独立思考 (Rushmore)》激起了我们的兴趣，用《了不起的狐狸爸爸 (Fantastic Mr. Fox)》使我们眼花缭乱，
+    
+    6
+    用《月亮王国之恋 (Moonrise Kingdom)》偷走了我们的小心心。
+        """
+        prompt += example + "\n\n"
         
     if prev_subtitle:
-        prompt += f"Previous subtitle: {prev_subtitle}\n\n"
+        prompt += f"The following lines are for reference only, Previous subtitle: {prev_subtitle}\n\n"
 
     if prev_translated_subtitle:
-        prompt += f"Previous translated subtitle: {prev_translated_subtitle}\n\n"
+        prompt += f"The following lines are for reference only, Previous translated subtitle: {prev_translated_subtitle}\n\n"
         
     if next_subtitle:
-        prompt += f"Next subtitle: {next_subtitle}\n\n"
+        prompt += f"The following lines are for reference only, Next subtitle: {next_subtitle}\n\n"
         
-    # prompt += f"Translate the following {source_language} subtitles to {target_language} line by line for the video titled '{titles}'. (If a sentence is unfinished, translate the unfinished sentence without merging it with the next line. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without repetition, and maintain the original sentence structure even if it's unfinished. The translated subtitles should have the same number of lines ({subtitles_length}) as the source subtitles, and the numbering should be maintained.) All the previous text is the prompt, here is the subtitles you need to translate:\n{subtitles}\n"
+    # prompt += f"Translate the following subtitles to {target_language} line by line for the video titled '{titles}'. (If a sentence is unfinished, translate the unfinished sentence without merging it with the next line. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without repetition, and maintain the original sentence structure even if it's unfinished. The translated subtitles should have the same number of lines ({subtitles_length}) as the source subtitles, and the numbering should be maintained.) All the previous text is the prompt, here is the subtitles you need to translate:\n{subtitles}\n"
 
-    # prompt = f"Translate the following {source_language} subtitles to {target_language} line by line for the video titled '{titles}'. If a sentence is unfinished, translate the unfinished sentence without merging it with the next line. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without repetition, and maintain the original sentence structure even if it's unfinished. The translated subtitles should have the same number of lines ({subtitles_length}) as the source subtitles, and the numbering should be maintained. Only Reply with the translation of the value of 'subtitles'"
+    # prompt = f"Translate the following subtitles to {target_language} line by line for the video titled '{titles}'. If a sentence is unfinished, translate the unfinished sentence without merging it with the next line. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without repetition, and maintain the original sentence structure even if it's unfinished. The translated subtitles should have the same number of lines ({subtitles_length}) as the source subtitles, and the numbering should be maintained. Only Reply with the translation of the value of 'subtitles'"
     
     
     # input_data = {
     #     "warning_message": warning_message if warning_message else None,
     #     "previous_subtitle": prev_subtitle,
     #     "next_subtitle": next_subtitle,
-    #     "source_language": source_language,
     #     "target_language": target_language,
     #     "subtitles_length": subtitles_length,
     #     "titles": titles,
@@ -151,50 +195,12 @@ def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subt
     #     "current_subtitles": subtitles,
     # }, 
 
-#     example = """
-# Here is an example of input and translation text:
-# 1
-# Let's talk about the messiah of small bean cinema, otherwise known as Wes Anderson.
 
-# 2
-# By now most of you have likely been seduced at one time or another by this man's meticulously
-
-# 3
-# crafted mise-en-scene, intensely symmetrical composition, or quirky, somewhat disaffected
-
-# 4
-# twee characters.
-
-# 5
-# He piqued our interest with Rushmore, dazzled us with Fantastic Mr. Fox, and stole our little
-
-# 6
-# hearts with Moonrise Kingdom.
-
-# 1
-# 让我们来谈谈被誉为小豆电影救世主的韦斯·安德森。
-
-# 2
-# 到目前为止，你们中的大多数人可能已经被这位导演的精心
-
-# 3
-# 制作的布景、高度对称的构图或者古怪、有些冷漠的
-
-# 4
-# 小清新角色所吸引过。
-
-# 5
-# 他用《独立思考 (Rushmore)》激起了我们的兴趣，用《了不起的狐狸爸爸 (Fantastic Mr. Fox)》使我们眼花缭乱，
-
-# 6
-# 用《月亮王国之恋 (Moonrise Kingdom)》偷走了我们的小心心。
-#     """
-#     prompt += example + "\n\n"
     prompt += f"Translate the following subtitle:\n{subtitles}\n\n"
     
     
     system_content = ("You are a program responsible for translating subtitles. Your task is to "
-     f"translate the {source_language} subtitles into {target_language} line by line for the "
+     f"translate the subtitles into {target_language} line by line for the "
      f"video titled '{titles}'. Please do not create "
      "the following subtitles on your own. Please do not output any text other than "
      "the translation. You will receive a few lines of previous subtitles, a few "
@@ -207,13 +213,13 @@ def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subt
      "next subtitle to make the sentence complete.  If the first sentence in the "
      "current subtitle is incomplete, you may combine the translation of the last few "
      "words in the last subtitle to make the sentence complete. If you need to merge the subtitles with the following line, "
-     "simply repeat the translation, do not leave the line empty or use placeholder.")
+     f"simply repeat the translation, do not leave the line empty or use a placeholder. Target language: {target_language}")
      
      
     messages = [
         {"role": "system", "content": system_content},
         {"role": "user", "content": prompt}
-        # {"role": "system", "content": f"You are a program responsible for translate the following {source_language} subtitles to {target_language} line by line for the video titled '{titles}'. Your task is to output the specified target language based on the input text. Please do not create the following subtitles on your own. Please do not output any text other than the translation. You will receive a JSON object that contains following keys ('warning_message', 'previous_subtitle', 'next_subtitle', 'source_language', 'target_language', 'subtitles_length', 'titles', 'prompt', 'subtitles'), but you only need to translate the value of key 'subtitles', and reply with the translation only. You will have access to the previous translation results and next few lines of subtitle. If you need to merge the subtitles with the following line, simply repeat the translation. If a sentence is unfinished, translate the unfinished sentence without merging it with the next line. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without repetition, and maintain the original sentence structure even if it's unfinished. The translated subtitles should have the same number of lines ({subtitles_length}) as the source subtitles, and the numbering should be maintained.\n"},
+        # {"role": "system", "content": f"You are a program responsible for translate the following subtitles to {target_language} line by line for the video titled '{titles}'. Your task is to output the specified target language based on the input text. Please do not create the following subtitles on your own. Please do not output any text other than the translation. You will receive a JSON object that contains following keys ('warning_message', 'previous_subtitle', 'next_subtitle', 'target_language', 'subtitles_length', 'titles', 'prompt', 'subtitles'), but you only need to translate the value of key 'subtitles', and reply with the translation only. You will have access to the previous translation results and next few lines of subtitle. If you need to merge the subtitles with the following line, simply repeat the translation. If a sentence is unfinished, translate the unfinished sentence without merging it with the next line. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without repetition, and maintain the original sentence structure even if it's unfinished. The translated subtitles should have the same number of lines ({subtitles_length}) as the source subtitles, and the numbering should be maintained.\n"},
         # {"role": "user", "content": json.dumps(input_data)}
     ]
     print("========Messages========\n")
@@ -227,6 +233,7 @@ def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subt
                 model="gpt-3.5-turbo",
                 messages=messages,
                 temperature=0.3,
+                top_p=0.5
             )
             inference_not_done = False
         except Exception as e:
@@ -248,11 +255,9 @@ def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subt
     return translated_subtitles, used_dollars
 
     
-def batch_translate_gpt(result, timestamps, batch_size, source_language='en', target_language='zh', titles='Video Title not found'):
+def batch_translate_gpt(result, timestamps, batch_size, target_language='zh', titles='Video Title not found'):
     if target_language == "zh":
         target_language = "Simplified Chinese"
-    if source_language == 'en':
-        source_language = 'English'
         
     translated = []
     total_dollars = 0
@@ -263,7 +268,7 @@ def batch_translate_gpt(result, timestamps, batch_size, source_language='en', ta
         prev_subtitle = result[i-1] if i > 0 else None
         next_subtitle = result[i+1] if i < len(result) - 1 else None
         # t = merge_subtitles_with_timestamps(t, timestamps[i])
-        tt, used_dollars, retry_count, wasted_dollars = translate_gpt(t, prev_subtitle, next_subtitle, prev_translated_subtitle, source_language=source_language, target_language=target_language, subtitles_length=batch_size, titles=titles)
+        tt, used_dollars, retry_count, wasted_dollars = translate_gpt(t, prev_subtitle, next_subtitle, prev_translated_subtitle, target_language=target_language, subtitles_length=count_blocks(t), titles=titles)
         prev_translated_subtitle = tt
         tt_merged = merge_subtitles_with_timestamps(tt, timestamps[i])
         total_dollars += used_dollars

@@ -9,6 +9,7 @@ from pythumb import Thumbnail
 import subprocess
 from googletrans import Translator
 from pytube import YouTube
+import time
 
 # import pysrt
 # from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
@@ -37,13 +38,17 @@ def download_youtube_video(url):
     # Download the video using yt-dlp
     output_filename = os.path.join(video_folder, f"{yt.title}.%(ext)s")
     youtube_dl_command = f"yt-dlp -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]' --merge-output-format mp4 -o \"{output_filename}\" {url}"
-    completed_process = subprocess.run(youtube_dl_command, shell=True, check=True, text=True, capture_output=True)
+    subprocess.run(youtube_dl_command, shell=True, check=True)
 
     # Find the downloaded video file
-    for file in os.listdir(video_folder):
-        if file.endswith(".mp4"):
-            downloaded_video_path = os.path.join(video_folder, file)
-            break
+    downloaded_video_path = None
+    while downloaded_video_path is None:
+        for file in os.listdir(video_folder):
+            if file.endswith(".mp4"):
+                downloaded_video_path = os.path.join(video_folder, file)
+                break
+        print("Waiting for video to download...")
+        time.sleep(30)
     # downloaded_video_path = os.path.join(video_folder, f"{yt.title}.mp4")
     print('Download complete: ' + downloaded_video_path)
     print(f'File size: {os.path.getsize(downloaded_video_path)/1e6} mb')
@@ -162,7 +167,17 @@ def translate_text_google(text, src_lang='en', tr_lang='zh-cn'):
     translator = Translator()
     translated = []
     for t in text:
-        translation = translator.translate(t, src=src_lang, dest=tr_lang)
+        # translation = translator.translate(t, src=src_lang, dest=tr_lang)
+        inference_not_done = True
+        while inference_not_done:
+            try:
+                translation = translator.translate(t, src=src_lang, dest=tr_lang)
+                inference_not_done = False
+            except Exception as e:
+                print(f"Waiting 15 seconds")
+                print(f"Error was: {e}")
+                time.sleep(15)
+        
         translated.append(translation.text)
     return translated
 
