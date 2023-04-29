@@ -102,9 +102,10 @@ def check_response(input_subtitles, translated_subtitles):
 
 
 # Translate subtitles check_response wrapper
-def translate_gpt(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, target_language="Chinese", subtitles_length=25, titles="Video Title not found",):
+def translate_gpt(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, target_language="Chinese", subtitles_length=25, titles="Video Title not found", video_information=None, model='gpt-3.5-turbo'):
+
+    translated_subtitles, used_dollars = send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, target_language=target_language, subtitles_length=subtitles_length, titles=titles, video_information=video_information, model=model)
     
-    translated_subtitles, used_dollars = send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, target_language=target_language, subtitles_length=subtitles_length, titles=titles)
     count = 0
     total_used_dollars = used_dollars
     blocks, additional_content, problematic_blocks = check_response(subtitles, translated_subtitles)
@@ -115,7 +116,7 @@ def translate_gpt(subtitles, prev_subtitle, next_subtitle, prev_translated_subti
         warning_message = f"Warning: Mismatch in the number of lines ({blocks} != {subtitles_length}), or additional content found ({additional_content}), or problematic blocks ({problematic_blocks}), retry count {count}..."
         print(warning_message)
         cumulative_warning = cumulative_warning + warning_message + "\n"
-        translated_subtitles, used_dollars = send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, target_language=target_language, subtitles_length=subtitles_length, titles=titles, warning_message=cumulative_warning, prev_response=translated_subtitles)
+        translated_subtitles, used_dollars = send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, target_language=target_language, subtitles_length=subtitles_length, titles=titles, warning_message=cumulative_warning, prev_response=translated_subtitles, video_information=video_information, model=model)
         count += 1
         wasted_dollars = total_used_dollars
         total_used_dollars += used_dollars
@@ -124,8 +125,7 @@ def translate_gpt(subtitles, prev_subtitle, next_subtitle, prev_translated_subti
         
     return translated_subtitles, total_used_dollars, count, wasted_dollars
 
-
-def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, target_language="Chinese", subtitles_length=25, titles="Video Title not found", warning_message=None, prev_response=None):
+def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, target_language="Chinese", subtitles_length=25, titles="Video Title not found", model='gpt-3.5-turbo', warning_message=None, prev_response=None, video_information=None):
     prompt = ""
     if warning_message:
         prompt = f"In a previous request sent to OpenAI, the response is problematic. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without merging lines or altering the original sentence structure, even if it's unfinished. please do not create the subtitles that are not matching the corresponding line and (!!important) make sure that your reply only contain the {subtitles_length} lines, the translated subtitles have the same number of lines ({subtitles_length}) as the source subtitles. Learn from your mistake. Here is the warning message generated based on your previous response:\n{warning_message}\n\n"
@@ -175,10 +175,14 @@ def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subt
 
     if prev_translated_subtitle:
         prompt += f"The following lines are for reference only, Previous translated subtitle: {prev_translated_subtitle}\n\n"
+    
+    if video_information:
+        prompt += f"Additional video information: {video_information}\n\n"
         
     if next_subtitle:
         prompt += f"The following lines are for reference only, Next subtitle: {next_subtitle}\n\n"
-        
+    
+
     # prompt += f"Translate the following subtitles to {target_language} line by line for the video titled '{titles}'. (If a sentence is unfinished, translate the unfinished sentence without merging it with the next line. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without repetition, and maintain the original sentence structure even if it's unfinished. The translated subtitles should have the same number of lines ({subtitles_length}) as the source subtitles, and the numbering should be maintained.) All the previous text is the prompt, here is the subtitles you need to translate:\n{subtitles}\n"
 
     # prompt = f"Translate the following subtitles to {target_language} line by line for the video titled '{titles}'. If a sentence is unfinished, translate the unfinished sentence without merging it with the next line. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without repetition, and maintain the original sentence structure even if it's unfinished. The translated subtitles should have the same number of lines ({subtitles_length}) as the source subtitles, and the numbering should be maintained. Only Reply with the translation of the value of 'subtitles'"
@@ -230,7 +234,7 @@ def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subt
     while inference_not_done:
         try:
             response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
+                model=model,
                 messages=messages,
                 temperature=0.3,
                 top_p=0.5
@@ -247,19 +251,28 @@ def send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subt
     print("========Response========\n")
     print(translated_subtitles)
     
-    used_tokens = response['usage']['total_tokens']
-    used_dollars = used_tokens / 1000 * 0.002
-    print(f"Used tokens: {used_tokens}, Used dollars: {used_dollars}")
+    if model == "gpt-3.5-turbo":
+        used_tokens = response['usage']['total_tokens']
+        used_dollars = used_tokens / 1000 * 0.002
+        print(f"Used tokens: {used_tokens}, Used dollars: {used_dollars}")
+    elif model == "gpt-4":
+        prompt_tokens = response['usage']['prompt_tokens']
+        completion_tokens = response['usage']['completion_tokens']
+        used_dollars = (prompt_tokens / 1000 * 0.03) + (completion_tokens / 1000 * 0.06)
+        print(f"prompt tokens: {prompt_tokens}, completion tokens: {completion_tokens}, Used dollars: {used_dollars}")
+        
+    
     print("========End of Response========\n")
     
     return translated_subtitles, used_dollars
 
-    
-def batch_translate_gpt(result, timestamps, batch_size, target_language='zh', titles='Video Title not found'):
+def batch_translate_gpt(result, timestamps, batch_size, target_language='zh', model='gpt-3.5-turbo', titles='Video Title not found', video_information=None):
+# def batch_translate_gpt(result, timestamps, batch_size, target_language='zh', titles='Video Title not found', video_information=None):
     if target_language == "zh":
         target_language = "Simplified Chinese"
         
     translated = []
+    raw_translated = []
     total_dollars = 0
     number_of_retry = 0
     total_wasted_dollars = 0
@@ -268,8 +281,9 @@ def batch_translate_gpt(result, timestamps, batch_size, target_language='zh', ti
         prev_subtitle = result[i-1] if i > 0 else None
         next_subtitle = result[i+1] if i < len(result) - 1 else None
         # t = merge_subtitles_with_timestamps(t, timestamps[i])
-        tt, used_dollars, retry_count, wasted_dollars = translate_gpt(t, prev_subtitle, next_subtitle, prev_translated_subtitle, target_language=target_language, subtitles_length=count_blocks(t), titles=titles)
+        tt, used_dollars, retry_count, wasted_dollars = translate_gpt(t, prev_subtitle, next_subtitle, prev_translated_subtitle, target_language=target_language, subtitles_length=count_blocks(t), titles=titles, model=model, video_information=video_information)
         prev_translated_subtitle = tt
+        raw_translated.append(tt)
         tt_merged = merge_subtitles_with_timestamps(tt, timestamps[i])
         total_dollars += used_dollars
         number_of_retry += retry_count
@@ -286,17 +300,18 @@ def batch_translate_gpt(result, timestamps, batch_size, target_language='zh', ti
         translated.append(tt_merged)
         
     translated = '\n\n'.join(translated)
+    raw_translated = '\n\n'.join(raw_translated)
     print(translated)
     print("========Translate summary=======\n")
     print(f"total dollars used: {total_dollars:.3f}\n")
     print(f"total number of retry: {number_of_retry}\n")
     print(f"total wasted dollars: {total_wasted_dollars:.3f}\n")
     print("========End of Translate summary=======\n")
-    return translated
+    return translated, raw_translated
 
 
     
-def translate_with_gpt(input_file, batch_size, target_language):
+def translate_with_gpt(input_file, batch_size, target_language, model, video_information=None):
     # Extract the file name without the extension
     file_name = os.path.splitext(os.path.basename(input_file))[0]
 
@@ -304,7 +319,7 @@ def translate_with_gpt(input_file, batch_size, target_language):
     output_file = os.path.join(os.path.dirname(input_file), f"{file_name}_{target_language}_gpt.srt")
     
     subtitles_batch, timestamps_batch = load_subtitles(input_file, batch_size=batch_size)
-    translated_subtitles = batch_translate_gpt(subtitles_batch, timestamps_batch, batch_size, target_language=target_language, titles=file_name)
+    translated_subtitles, raw_translated_subtitles = batch_translate_gpt(subtitles_batch, timestamps_batch, batch_size, target_language=target_language, model=model, titles=file_name, video_information=video_information)
     save_translated_subtitles(output_file, translated_subtitles)
 
 # Main function
@@ -314,9 +329,12 @@ def main():
     # parser.add_argument('--output_file', help='The path to the output subtitle file.', type=str, required=True)
     parser.add_argument('--batch_size', help='The number of subtitles to process in a batch.', type=int, default=3)
     parser.add_argument('--target_language', help='The target language for translation.', default='zh')
+    parser.add_argument("-i", "--additional_info", type=str, default="", help="Additional information about the video.")
+    parser.add_argument('--model', default='gpt-3.5-turbo', help='Model for OpenAI API', type=str, choices=['gpt-3.5-turbo', 'gpt-4'])
+    
     args = parser.parse_args()
 
-    translate_with_gpt(args.input_file, args.batch_size, args.target_language)
+    translate_with_gpt(args.input_file, args.batch_size, args.target_language, args.model, args.additional_info)
     
 
 if __name__ == "__main__":

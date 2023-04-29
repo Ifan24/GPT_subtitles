@@ -18,17 +18,34 @@ import time
 
 def download_youtube_video(url):
     yt = YouTube(url)
-    print('Downloading video: ' + yt.title)
+    while True:
+        try:
+            title = yt.title
+            break
+        except:
+            print("Failed to get name. Retrying... Press Ctrl+C to exit")
+            time.sleep(1)
+            yt = YouTube(url)
+            continue
+
+    title = yt.title    
+    print('Downloading video: ' + title)
 
     # Create a folder called 'videos' if it does not exist
     if not os.path.exists('videos'):
         os.makedirs('videos')
 
     # Create a folder with the video title inside the "videos" folder
-    video_folder = os.path.join("videos", yt.title)
+    video_folder = os.path.join("videos", title)
     if not os.path.exists(video_folder):
         os.makedirs(video_folder)
-        
+    
+    # Get first caption available (usually English)
+    # print(f"video captions: {yt.captions}")
+    # caption = list(yt.captions.keys())[0]
+    # caption.download(title=title, output_path=video_folder, srt=True, filename_prefix=f'[{caption.name}] ')
+    
+    
     # Download the thumbnail using pythumb
     thumbnail = Thumbnail(url)
     thumbnail.fetch()
@@ -36,22 +53,26 @@ def download_youtube_video(url):
     print(f'Thumbnail saved at: {video_folder}')
 
     # Download the video using yt-dlp
-    output_filename = os.path.join(video_folder, f"{yt.title}.%(ext)s")
+    output_filename = os.path.join(video_folder, f"{title}.%(ext)s")
     youtube_dl_command = f"yt-dlp -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]' --merge-output-format mp4 -o \"{output_filename}\" {url}"
     subprocess.run(youtube_dl_command, shell=True, check=True)
 
     # Find the downloaded video file
     downloaded_video_path = None
+    count = 0
     while downloaded_video_path is None:
         for file in os.listdir(video_folder):
             if file.endswith(".mp4"):
                 downloaded_video_path = os.path.join(video_folder, file)
                 break
-        print("Waiting for video to download...")
+        print(f" | Waiting for video to download... | time elapsed: {count} seconds |")
+        count += 30
         time.sleep(30)
-    # downloaded_video_path = os.path.join(video_folder, f"{yt.title}.mp4")
+    # downloaded_video_path = os.path.join(video_folder, f"{title}.mp4")
     print('Download complete: ' + downloaded_video_path)
     print(f'File size: {os.path.getsize(downloaded_video_path)/1e6} mb')
+    
+    # TODO: check if the youtube video has human-made caption already
     
     return downloaded_video_path
  
