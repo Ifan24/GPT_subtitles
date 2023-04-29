@@ -16,6 +16,75 @@ import time
 # from ffpb import main as ffpb_main
 
 
+from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api.formatters import SRTFormatter
+
+def get_transcript(video_id):
+    transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        
+    # List of languages in priority. 'en' stands for English. Add more if needed.
+    languages = ['en']
+
+    try:
+        # Try to fetch the manually created English transcript
+        transcript = transcript_list.find_manually_created_transcript(languages)
+    except:
+        try:
+            # Try to fetch manually created transcript in any other language
+            transcript = transcript_list.find_manually_created_transcript(transcript_list._manually_created_transcripts.keys())
+        except:
+            try:
+                # Try to fetch the auto generated English transcript
+                transcript = transcript_list.find_generated_transcript(languages)
+            except:
+                # Get auto generated transcript in any other language
+                transcript = transcript_list.find_generated_transcript(transcript_list._generated_transcripts.keys())
+
+    # Fetch the actual transcript data
+    transcript_data = transcript.fetch()
+
+    # Create a SRT formatter object
+    formatter = SRTFormatter()
+
+    # Format the transcript_data into SRT format
+    srt_formatted = formatter.format_transcript(transcript_data)
+
+    return srt_formatted, transcript.language
+
+from urllib.parse import parse_qs, urlparse
+
+def get_youtube_id(url):
+    # Parse the url
+    parsed_url = urlparse(url)
+
+    # Check the netloc part of the url to confirm it's a youtube url
+    if parsed_url.netloc == "www.youtube.com":
+        # Get the 'v' query parameter
+        return parse_qs(parsed_url.query).get('v', [None])[0]
+
+    return None
+
+def download_srt_transcript(url, title, output_path):
+    # Get the SRT formatted transcript
+    try:
+        srt_transcript, language = get_transcript(get_youtube_id(url))
+    except Exception as e:
+        print(f"Failed to download transcript. Error: {e}")
+        return False
+
+    # Filename of the SRT file
+    filename = f"[{language}] {title}.srt"
+
+    # Full path of the SRT file
+    srt_file_path = os.path.join(output_path, filename)
+
+    # Write the SRT formatted transcript to the file
+    with open(srt_file_path, 'w', encoding='utf-8') as file:
+        file.write(srt_transcript)
+
+    print(f'SRT file downloaded at: {srt_file_path}')
+    return True
+    
 def download_youtube_video(url):
     yt = YouTube(url)
     while True:
@@ -41,6 +110,9 @@ def download_youtube_video(url):
         os.makedirs(video_folder)
     
     # Get first caption available (usually English)
+    transcript_available = download_srt_transcript(url=url, title=title, output_path=video_folder)
+    
+    # Download the captions using pytube (pytube is not working for some reason) (subtitle overlapping issue)
     # print(f"video captions: {yt.captions}")
     # caption = list(yt.captions.keys())[0]
     # caption.download(title=title, output_path=video_folder, srt=True, filename_prefix=f'[{caption.name}] ')
@@ -71,8 +143,6 @@ def download_youtube_video(url):
     # downloaded_video_path = os.path.join(video_folder, f"{title}.mp4")
     print('Download complete: ' + downloaded_video_path)
     print(f'File size: {os.path.getsize(downloaded_video_path)/1e6} mb')
-    
-    # TODO: check if the youtube video has human-made caption already
     
     return downloaded_video_path
  
