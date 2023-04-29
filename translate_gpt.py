@@ -47,50 +47,6 @@ class Subtitle:
 
         return '\n'.join(processed_lines), timestamps
 
-    def merge_subtitles_with_timestamps(self, translated_subtitles, timestamps):
-        translated_lines = translated_subtitles.split('\n')
-        merged_lines = []
-
-        timestamp_idx = 0
-        for line in translated_lines:
-            if re.match(r'\d+\s*$', line):
-                merged_lines.append(line)
-                merged_lines.append(timestamps[timestamp_idx])
-                timestamp_idx += 1
-            else:
-                merged_lines.append(line)
-
-        return '\n'.join(merged_lines)
-
-    def count_blocks(self, subtitle_string):
-        if not subtitle_string.endswith('\n'):
-            subtitle_string += '\n'
-        return len(re.findall(r'(\d+\n(?:.+\n)+)', subtitle_string))
-
-    def check_response(self, input_subtitles, translated_subtitles):
-        if not translated_subtitles.endswith('\n'):
-            translated_subtitles += '\n'
-
-        input_blocks = re.findall(r'(\d+\n(?:.+\n)+)', input_subtitles)
-        translated_blocks = re.findall(r'(\d+\n(?:.+\n)+)', translated_subtitles)
-        additional_content = re.sub(r'\d+\n(?:.+\n)+', '', translated_subtitles).strip()
-
-        problematic_blocks = []
-        for i, (input_block, translated_block) in enumerate(zip(input_blocks, translated_blocks)):
-            input_lines = input_block.strip().split('\n')
-            translated_lines = translated_block.strip().split('\n')
-
-            if len(input_lines) != len(translated_lines):
-                problematic_blocks.append((i, translated_block))
-                continue
-
-            input_line_number = int(input_lines[0])
-            translated_line_number = int(translated_lines[0])
-
-            if input_line_number != translated_line_number:
-                problematic_blocks.append((i, translated_block))
-
-        return len(translated_blocks), additional_content, problematic_blocks
 
     def get_processed_batches_and_timestamps(self, batch_size):
         subtitle_batches = self.split_subtitles(batch_size)
@@ -103,6 +59,53 @@ class Subtitle:
         return processed_batches, timestamps_batches
 
 
+
+def merge_subtitles_with_timestamps(translated_subtitles, timestamps):
+    translated_lines = translated_subtitles.split('\n')
+    merged_lines = []
+
+    timestamp_idx = 0
+    for line in translated_lines:
+        if re.match(r'\d+\s*$', line):
+            merged_lines.append(line)
+            merged_lines.append(timestamps[timestamp_idx])
+            timestamp_idx += 1
+        else:
+            merged_lines.append(line)
+
+    return '\n'.join(merged_lines)
+        
+def count_blocks(subtitle_string):
+    if not subtitle_string.endswith('\n'):
+        subtitle_string += '\n'
+    return len(re.findall(r'(\d+\n(?:.+\n)+)', subtitle_string))
+        
+def check_response(input_subtitles, translated_subtitles):
+    if not translated_subtitles.endswith('\n'):
+        translated_subtitles += '\n'
+
+    input_blocks = re.findall(r'(\d+\n(?:.+\n)+)', input_subtitles)
+    translated_blocks = re.findall(r'(\d+\n(?:.+\n)+)', translated_subtitles)
+    additional_content = re.sub(r'\d+\n(?:.+\n)+', '', translated_subtitles).strip()
+
+    problematic_blocks = []
+    for i, (input_block, translated_block) in enumerate(zip(input_blocks, translated_blocks)):
+        input_lines = input_block.strip().split('\n')
+        translated_lines = translated_block.strip().split('\n')
+
+        if len(input_lines) != len(translated_lines):
+            problematic_blocks.append((i, translated_block))
+            continue
+
+        input_line_number = int(input_lines[0])
+        translated_line_number = int(translated_lines[0])
+
+        if input_line_number != translated_line_number:
+            problematic_blocks.append((i, translated_block))
+
+    return len(translated_blocks), additional_content, problematic_blocks
+        
+
 class Translator:
     def __init__(self, model='gpt-3.5-turbo', batch_size=3, target_language='zh', titles='Video Title not found', video_info=None):
         self.model = model
@@ -110,6 +113,9 @@ class Translator:
         self.target_language = target_language
         self.titles = titles
         self.video_info = video_info
+        
+        if target_language == "zh":
+            self.target_language = "Simplified Chinese"
         
 
     def send_to_openai(self, subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, subtitles_length, warning_message=None, prev_response=None):
@@ -226,18 +232,16 @@ class Translator:
             used_dollars = (prompt_tokens / 1000 * 0.03) + (completion_tokens / 1000 * 0.06)
             print(f"prompt tokens: {prompt_tokens}, completion tokens: {completion_tokens}, Used dollars: {used_dollars}")
 
-        print("========End of Response========\n")
-        
         return translated_subtitles, used_dollars
 
     # Translate subtitles check_response wrapper
     def translate_subtitles(self, subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle):
-        subtitles_length = Subtitle.count_blocks(subtitles)
+        subtitles_length = count_blocks(subtitles)
         translated_subtitles, used_dollars = self.send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, subtitles_length)
 
         count = 0
         total_used_dollars = used_dollars
-        blocks, additional_content, problematic_blocks = Subtitle.check_response(subtitles, translated_subtitles)
+        blocks, additional_content, problematic_blocks = check_response(subtitles, translated_subtitles)
 
         cumulative_warning = ""
         wasted_dollars = 0
@@ -249,13 +253,12 @@ class Translator:
             count += 1
             wasted_dollars = total_used_dollars
             total_used_dollars += used_dollars
-            blocks, additional_content, problematic_blocks = Subtitle.check_response(subtitles, translated_subtitles)
+            blocks, additional_content, problematic_blocks = check_response(subtitles, translated_subtitles)
 
         return translated_subtitles, total_used_dollars, count, wasted_dollars
 
     def batch_translate(self, subtitle_batches, timestamps_batches):
-        if target_language == "zh":
-            target_language = "Simplified Chinese"
+
 
         translated = []
         raw_translated = []
@@ -269,7 +272,7 @@ class Translator:
             tt, used_dollars, retry_count, wasted_dollars = self.translate_subtitles(t, prev_subtitle, next_subtitle, prev_translated_subtitle)
             prev_translated_subtitle = tt
             raw_translated.append(tt)
-            tt_merged = Subtitle.merge_subtitles_with_timestamps(tt, timestamps_batches[i])
+            tt_merged = merge_subtitles_with_timestamps(tt, timestamps_batches[i])
             total_dollars += used_dollars
             number_of_retry += retry_count
             total_wasted_dollars += wasted_dollars
@@ -300,7 +303,7 @@ def translate_with_gpt(input_file, batch_size, target_language, model, video_inf
     file_name = os.path.splitext(os.path.basename(input_file))[0]
     
     subtitle = Subtitle(input_file)
-    translator = Translator(model=model, batch_size=batch_size, target_language=target_language, titles=file_name, additional_info=video_info)
+    translator = Translator(model=model, batch_size=batch_size, target_language=target_language, titles=file_name, video_info=video_info)
 
     subtitle_batches, timestamps_batches = subtitle.get_processed_batches_and_timestamps(batch_size)
     translated_subtitles, raw_translated_subtitles = translator.batch_translate(subtitle_batches, timestamps_batches)
