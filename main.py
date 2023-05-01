@@ -238,7 +238,7 @@ if __name__ == "__main__":
     # Download the YouTube video or use the local video file
     if args.youtube_url:
         from youtube_downloader import YouTubeDownloader
-        video_filename = YouTubeDownloader(args.youtube_url).download_video()
+        video_filename = YouTubeDownloader(args.youtube_url, args.target_language).download_video()
     else:
         print("Local video file: " + args.local_video)
         video_filename = args.local_video

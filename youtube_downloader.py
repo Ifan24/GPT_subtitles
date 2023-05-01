@@ -11,21 +11,23 @@ class TranscriptFetcher:
     def __init__(self, video_id):
         self.video_id = video_id
         self.transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-
-    def fetch_transcript(self, languages=['en']):
+        
+    def fetch_transcript(self, target_language):
         try:
-            transcript = self.transcript_list.find_manually_created_transcript(languages)
+            transcript = self.transcript_list.find_manually_created_transcript([target_language])
         except:
             try:
                 transcript = self.transcript_list.find_manually_created_transcript(
                     self.transcript_list._manually_created_transcripts.keys())
             except:
                 try:
-                    transcript = self.transcript_list.find_generated_transcript(languages)
+                    transcript = self.transcript_list.find_generated_transcript([target_language])
                 except:
                     transcript = self.transcript_list.find_generated_transcript(
                         self.transcript_list._generated_transcripts.keys())
-
+        
+        if target_language != 'en':
+            transcript = transcript.translate(target_language)
         transcript_data = transcript.fetch()
         return transcript_data, transcript.language
 
@@ -41,12 +43,11 @@ class SRTDownloader:
         if parsed_url.netloc == "www.youtube.com":
             return parse_qs(parsed_url.query).get('v', [None])[0]
         raise ValueError(f"Invalid YouTube URL: {self.url}")
-        # return None
-        
-    def download(self):
+
+    def download(self, target_language):
         try:
             video_id = self.get_youtube_id()
-            transcript_data, language = TranscriptFetcher(video_id).fetch_transcript()
+            transcript_data, language = TranscriptFetcher(video_id).fetch_transcript(target_language)
             srt_formatted = SRTFormatter().format_transcript(transcript_data)
 
             filename = f"[{language}] {self.title}.srt"
@@ -63,8 +64,11 @@ class SRTDownloader:
 
 
 class YouTubeDownloader:
-    def __init__(self, url):
+    def __init__(self, url, target_language='zh-Hans'):
         self.url = url
+        self.target_language = target_language
+        if target_language == 'zh':
+            self.target_language = 'zh-Hans'
 
     def download_video(self):
         yt = YouTube(self.url)
@@ -89,8 +93,12 @@ class YouTubeDownloader:
         if not os.path.exists(video_folder):
             os.makedirs(video_folder)
 
-        # Download the SRT transcript
-        SRTDownloader(self.url, title, video_folder).download()
+        # Download English transcript first
+        SRTDownloader(self.url, title, video_folder).download('en')
+        # Then try downloading the target language transcript
+        if self.target_language != 'en':
+            SRTDownloader(self.url, title, video_folder).download(self.target_language)
+
 
         # Download the thumbnail using pythumb
         thumbnail = Thumbnail(self.url)
