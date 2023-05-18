@@ -121,11 +121,12 @@ class Translator:
     def send_to_openai(self, subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, subtitles_length, warning_message=None, prev_response=None):
         prompt = ""
         if warning_message:
-            prompt = f"In a previous request sent to OpenAI, the response is problematic. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without merging lines or altering the original sentence structure, even if it's unfinished. please do not create the subtitles that are not matching the corresponding line and (!!important) make sure that your reply only contain the {subtitles_length} lines, the translated subtitles have the same number of lines ({subtitles_length}) as the source subtitles. Learn from your mistake. Here is the warning message generated based on your previous response:\n{warning_message}\n\n"
-            # prompt += f"The following lines are for reference only, Previous Response:\n{prev_response}\n\n"
+            prompt = f"In a previous request sent to OpenAI, the response is problematic. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without merging lines or altering the original sentence structure, even if it's unfinished. please do not create the subtitles that are not matching the corresponding line and (!!important) make sure that your reply only contain the {subtitles_length} lines, the translated subtitles have the same number of lines ({subtitles_length}) as the source subtitles. Learn from your mistake. Here is the warning message generated based on your previous response:\n---{warning_message}---\n\n"
+            # prompt += f"Previous Response:\n---{prev_response}---\n\n"
             
             example = """
-        Here is an example of translating English subtitle into Simplified Chinese subtitle:
+        Here is an example of translating English subtitles into Simplified Chinese subtitles:
+        Input:
         1
         Let's talk about the messiah of small bean cinema, otherwise known as Wes Anderson.
         
@@ -133,17 +134,15 @@ class Translator:
         By now most of you have likely been seduced at one time or another by this man's meticulously
         
         3
-        crafted mise-en-scene, intensely symmetrical composition, or quirky, somewhat disaffected
+        crafted mise-en-scene, intensely symmetrical composition, or quirky, somewhat disaffected twee characters.
         
         4
-        twee characters.
-        
-        5
         He piqued our interest with Rushmore, dazzled us with Fantastic Mr. Fox, and stole our little
         
-        6
+        5
         hearts with Moonrise Kingdom.
         
+        Output:
         1
         让我们来谈谈被誉为小豆电影救世主的韦斯·安德森。
         
@@ -151,40 +150,38 @@ class Translator:
         到目前为止，你们中的大多数人可能已经被这位导演的精心
         
         3
-        制作的布景、高度对称的构图或者古怪、有些冷漠的
+        制作的布景、高度对称的构图或者古怪、有些冷漠的小清新角色所吸引过。
         
         4
-        小清新角色所吸引过。
+        他用《独立思考》(Rushmore) 激起了我们的兴趣，用《了不起的狐狸爸爸》(Fantastic Mr. Fox) 使我们眼花缭乱，
         
         5
-        他用《独立思考 (Rushmore)》激起了我们的兴趣，用《了不起的狐狸爸爸 (Fantastic Mr. Fox)》使我们眼花缭乱，
+        用《月亮王国之恋》(Moonrise Kingdom) 偷走了我们的小心心。
         
-        6
-        用《月亮王国之恋 (Moonrise Kingdom)》偷走了我们的小心心。
             """
-            prompt += example + "\n\n"
+            prompt += f"---{example}---\n\n"
 
         if prev_subtitle:
-            prompt += f"The following lines are for reference only, Previous subtitle: {prev_subtitle}\n\n"
+            prompt += f"Previous subtitle: ---{prev_subtitle}---\n\n"
 
         if prev_translated_subtitle:
-            prompt += f"The following lines are for reference only, Previous translated subtitle: {prev_translated_subtitle}\n\n"
+            prompt += f"Previous translated subtitle: ---{prev_translated_subtitle}:---\n\n"
 
         if self.video_info:
-            prompt += f"Additional video information: {self.video_info}\n\n"
+            prompt += f"Additional video information: ---{self.video_info}---\n\n"
 
         if next_subtitle:
-            prompt += f"The following lines are for reference only, Next subtitle: {next_subtitle}\n\n"
+            prompt += f"Next subtitle: ---{next_subtitle}---\n\n"
 
-        prompt += f"Translate the following subtitle:\n{subtitles}\n\n"
+        prompt += f"Translate the following subtitle:\n```{subtitles}```\n\n"
 
         system_content = ("You are a program responsible for translating subtitles. Your task is to "
-                          f"translate the subtitles into {self.target_language} line by line for the "
+                          f"translate the subtitles delimited by triple backticks into {self.target_language} line by line for the "
                           f"video titled '{self.titles}'. Please do not create "
                           "the following subtitles on your own. Please do not output any text other than "
-                          "the translation. You will receive a few lines of previous subtitles, a few "
-                          "lines of the next subtitle, the translation of the previous subtitle and the "
-                          "current subtitles. Please ensure that each translated line corresponds to the "
+                          "the translation. You will receive some additional information for your reference only delimited by triple dashes, such as a few lines of previous subtitles, "
+                          "a few lines of the next subtitle, the translation of the previous subtitle and maybe error messages."
+                          "Please ensure that each translated line corresponds to the "
                           "same numbered line in the Original subtitles, without repetition. The translated "
                           f"subtitles should have the same number of lines ({subtitles_length}) as the source subtitles and "
                           "the numbering should be maintained. If the last sentence in the current subtitle "
@@ -233,7 +230,7 @@ class Translator:
             print(f"prompt tokens: {prompt_tokens}, completion tokens: {completion_tokens}, Used dollars: {used_dollars}")
 
         return translated_subtitles, used_dollars
-
+        
     # Translate subtitles check_response wrapper
     def translate_subtitles(self, subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle):
         subtitles_length = count_blocks(subtitles)
@@ -269,6 +266,14 @@ class Translator:
         for i, t in enumerate(tqdm(subtitle_batches)):
             prev_subtitle = subtitle_batches[i - 1] if i > 0 else None
             next_subtitle = subtitle_batches[i + 1] if i < len(subtitle_batches) - 1 else None
+            def extract_line(text):
+                if text is None:
+                    return None
+                lines = text.split('\n', 3)
+                first_two_lines = '\n'.join(lines[:3])
+                return first_two_lines
+            next_subtitle = extract_line(next_subtitle)
+            
             tt, used_dollars, retry_count, wasted_dollars = self.translate_subtitles(t, prev_subtitle, next_subtitle, prev_translated_subtitle)
             prev_translated_subtitle = tt
             raw_translated.append(tt)

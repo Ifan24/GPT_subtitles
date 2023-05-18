@@ -8,6 +8,108 @@ import copy
 from googletrans import Translator
 import time
 
+# import whisperx
+
+# from dotenv import load_dotenv
+
+# load_dotenv()
+# HUGGINGFACE_API_TOKEN = os.getenv("HUGGINGFACE_API_TOKEN")
+
+
+def word_segment_to_sentence(segments, max_text_len=80, max_duration=15):
+    """
+    Convert word segments to sentences.
+    :param segments: [{"word": "Hello,", "start": 1.1, "end": 2.2}, {"word": "World!", "start": 3.3, "end": 4.4}]
+    :type segments: list of dicts
+    :return: Segments, but with sentences instead of words.
+    :rtype: list of dicts  [{"text": "Hello, World!", "start": 1.1, "end": 4.4}]
+    """
+    
+    
+    end_of_sentence_symbols = tuple(['.', '。', ',', '，', '!', '！', '?', '？', ':', '：', '”', ')', ']', '}', ';'])
+    sentence_results = []
+    
+    current_sentence = {"text": "", "start": 0, "end": 0}
+    current_sentence_template = {"text": "", "start": 0, "end": 0}
+    
+    for segment in segments:
+        if "end" not in segment or "start" not in segment:
+            current_sentence["text"] += segment["word"]
+            continue
+        if current_sentence["text"] == "":
+            current_sentence["start"] = segment["start"]
+        current_sentence["text"] += segment["word"]
+        current_sentence["end"] = segment["end"]
+        
+        # Check if the segment ends a sentence, or if the current sentence exceeds the max length or duration
+        if segment["word"][-1] in end_of_sentence_symbols or \
+           len(current_sentence["text"]) >= max_text_len or \
+           (current_sentence["end"] - current_sentence["start"]) >= max_duration:
+            # Trim leading/trailing whitespace and add the sentence to the results
+            current_sentence["text"] = current_sentence["text"].strip()
+            sentence_results.append(copy.deepcopy(current_sentence))
+            
+            # Reset the current sentence
+            current_sentence = copy.deepcopy(current_sentence_template)
+            
+    return sentence_results
+
+
+
+def sentence_segments_merger(segments, min_text_len=8, max_text_len=80, max_segment_interval=2, max_duration=15):
+    """
+    Merge sentence segments to one segment, if the length of the text is less than max_text_len.
+    :param segments: [{"text": "Hello, World!", "start": 1.1, "end": 4.4}, {"text": "Hello, World!", "start": 1.1, "end": 4.4}]
+    :type segments: list of dicts
+    :param max_text_len: Max length of the text
+    :type max_text_len: int
+    :return: Segments, but with merged sentences.
+    :rtype: list of dicts  [{"text": "Hello, World! Hello, World!", "start": 1.1, "end": 4.4}]
+    """
+    
+    merged_segments = []
+    current_segment = {"text": "", "start": 0, "end": 0}
+    
+    for i, segment in enumerate(segments):
+        if current_segment["text"] == "":
+            current_segment["start"] = segment["start"]
+
+        # Check if the segment can be merged with the current merged segment
+        if segment["start"] - current_segment["end"] < max_segment_interval and \
+           len(current_segment["text"] + " " + segment["text"]) < max_text_len and \
+           (segment["end"] - current_segment["start"]) < max_duration:
+            # Merge the segment with the current merged segment
+            current_segment["text"] += ' ' + segment["text"]
+            current_segment["end"] = segment["end"]
+        else:
+            # If the current merged segment is not empty, trim leading/trailing whitespace
+            if current_segment["text"] != "":
+                current_segment["text"] = current_segment["text"].strip()
+                
+                # If the current merged segment is too short and there's a next segment
+                if len(current_segment["text"]) < min_text_len and i < len(segments) - 1:
+                    next_segment = segments[i + 1]
+                    
+                    # Check if the current merged segment can be merged with the next segment
+                    if len(current_segment["text"] + " " + next_segment["text"]) < max_text_len:
+                        # Merge the current merged segment with the next segment
+                        current_segment["text"] += ' ' + next_segment["text"]
+                        current_segment["end"] = next_segment["end"]
+                        continue  # Skip the next segment in the next iteration
+                
+                # Add the current merged segment to the list of merged segments
+                merged_segments.append(copy.deepcopy(current_segment))
+            
+            # Set the current merged segment to the current segment
+            current_segment = copy.deepcopy(segment)
+    
+    # Append the last segment if not empty
+    if current_segment["text"] != "":
+        current_segment["text"] = current_segment["text"].strip()
+        merged_segments.append(copy.deepcopy(current_segment))
+        
+    return merged_segments
+    
 class SubtitleProcessor:
     def __init__(self, video_path, target_language, model, translation_method):
         self.video_path = video_path
@@ -40,6 +142,70 @@ class SubtitleProcessor:
         text = '\n'.join(texts)
         return text
 
+    # def _transcribe_audio(self):
+    #     device = "cuda" 
+    #     audio_file = self.video_path
+    #     batch_size = 16 # reduce if low on GPU mem
+    #     compute_type = "float16" # change to "int8" if low on GPU mem (may reduce accuracy)
+    #     model = self.model
+    #     if self.model == 'large':
+    #         model = 'large-v2'
+    #     # 1. Transcribe with original whisper (batched)
+    #     model = whisperx.load_model(model, device, compute_type=compute_type)
+        
+    #     audio = whisperx.load_audio(audio_file)
+    #     result = model.transcribe(audio, batch_size=batch_size)
+    #     # print(result["segments"]) # before alignment
+    #     language = result["language"]
+    #     # delete model if low on GPU resources
+    #     # import gc; gc.collect(); torch.cuda.empty_cache(); del model
+        
+    #     # 2. Align whisper output
+    #     model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
+    #     result = whisperx.align(result["segments"], model_a, metadata, audio, device, return_char_alignments=False)
+    #     # print(result["segments"]) # after alignment
+        
+    #     # delete model if low on GPU resources
+    #     # import gc; gc.collect(); torch.cuda.empty_cache(); del model_a
+        
+    #     # 3. Assign speaker labels
+    #     # diarize_model = whisperx.DiarizationPipeline(use_auth_token=HUGGINGFACE_API_TOKEN, device=device)
+        
+    #     # # add min/max number of speakers if known
+    #     # diarize_segments = diarize_model(audio_file)
+    #     # # diarize_model(audio_file, min_speakers=min_speakers, max_speakers=max_speakers)
+        
+    #     # result = whisperx.assign_word_speakers(diarize_segments, result)
+    #     # print(diarize_segments)
+    #     # print(result["segments"]) # segments are now assigned speaker IDs
+    #     result["language"] = language
+        
+    #     srt_sub = self.segments_to_srt(result['segments'])
+    #     srt_file = os.path.join(os.path.dirname(self.video_path), f'{Path(self.video_path).stem}.srt')
+    #     with open(srt_file, 'w') as f:
+    #         f.write(srt_sub)
+
+    #     print(f"subtitle is saved at {srt_file}")
+        
+        
+    #     # Convert word segments to sentences
+    #     sentence_segments = word_segment_to_sentence(result["word_segments"])
+        
+    #     # Merge sentence segments if they meet certain conditions
+    #     merged_sentence_segments = sentence_segments_merger(sentence_segments)
+    
+    #     srt_sub = self.segments_to_srt(merged_sentence_segments)
+    #     srt_file = os.path.join(os.path.dirname(self.video_path), f'{Path(self.video_path).stem}_word.srt')
+    #     with open(srt_file, 'w') as f:
+    #         f.write(srt_sub)
+
+    #     print(f"subtitle is saved at {srt_file}")
+        
+        
+
+    #     return result, srt_file
+        
+        
     def transcribe_audio(self):
         model = whisper.load_model(self.model)
 
@@ -57,15 +223,38 @@ class SubtitleProcessor:
 
         print("Transcribing audio...")
         options = whisper.DecodingOptions(fp16=False, language=detected_language)
-        result = model.transcribe(self.video_path, **options.__dict__, verbose=False)
+        result = model.transcribe(self.video_path, **options.__dict__, verbose=False, word_timestamps=True)
+        
+        # without word_segment_to_sentence
+        # srt_sub = self.segments_to_srt(result['segments'])
+        # srt_file = os.path.join(os.path.dirname(self.video_path), f'{Path(self.video_path).stem}.srt')
+        # with open(srt_file, 'w') as f:
+        #     f.write(srt_sub)
 
+        # print(f"subtitle is saved at {srt_file}")
+
+        words_list = []
+        for segment in result["segments"]:
+            for word in segment["words"]:
+                word.pop('probability', None)
+            words_list += segment["words"]
+        
+        # print(words_list)
+        # Convert word segments to sentences
+        sentence_segments = word_segment_to_sentence(words_list)
+        
+        # Merge sentence segments if they meet certain conditions
+        merged_sentence_segments = sentence_segments_merger(sentence_segments)
+        result["segments"] = merged_sentence_segments
+        
+        # print(merged_sentence_segments)
         srt_sub = self.segments_to_srt(result['segments'])
         srt_file = os.path.join(os.path.dirname(self.video_path), f'{Path(self.video_path).stem}.srt')
         with open(srt_file, 'w') as f:
             f.write(srt_sub)
 
         print(f"subtitle is saved at {srt_file}")
-
+        
         return result, srt_file
 
     def translate_text_with_whisper(self):
