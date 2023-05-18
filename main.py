@@ -7,6 +7,7 @@ from pathlib import Path
 import copy
 from googletrans import Translator
 import time
+from faster_whisper import WhisperModel
 
 # import whisperx
 
@@ -33,9 +34,6 @@ def word_segment_to_sentence(segments, max_text_len=80, max_duration=15):
     current_sentence_template = {"text": "", "start": 0, "end": 0}
     
     for segment in segments:
-        if "end" not in segment or "start" not in segment:
-            current_sentence["text"] += segment["word"]
-            continue
         if current_sentence["text"] == "":
             current_sentence["start"] = segment["start"]
         current_sentence["text"] += segment["word"]
@@ -53,7 +51,6 @@ def word_segment_to_sentence(segments, max_text_len=80, max_duration=15):
             current_sentence = copy.deepcopy(current_sentence_template)
             
     return sentence_results
-
 
 
 def sentence_segments_merger(segments, min_text_len=8, max_text_len=80, max_segment_interval=2, max_duration=15):
@@ -116,6 +113,7 @@ class SubtitleProcessor:
         self.target_language = target_language
         self.model = model
         self.translation_method = translation_method
+        self.video_language = 'en'
 
     def segments_to_srt(self, segs):
         text = []
@@ -141,120 +139,46 @@ class SubtitleProcessor:
         texts = [s['text'] for s in segs]
         text = '\n'.join(texts)
         return text
-
-    # def _transcribe_audio(self):
-    #     device = "cuda" 
-    #     audio_file = self.video_path
-    #     batch_size = 16 # reduce if low on GPU mem
-    #     compute_type = "float16" # change to "int8" if low on GPU mem (may reduce accuracy)
-    #     model = self.model
-    #     if self.model == 'large':
-    #         model = 'large-v2'
-    #     # 1. Transcribe with original whisper (batched)
-    #     model = whisperx.load_model(model, device, compute_type=compute_type)
-        
-    #     audio = whisperx.load_audio(audio_file)
-    #     result = model.transcribe(audio, batch_size=batch_size)
-    #     # print(result["segments"]) # before alignment
-    #     language = result["language"]
-    #     # delete model if low on GPU resources
-    #     # import gc; gc.collect(); torch.cuda.empty_cache(); del model
-        
-    #     # 2. Align whisper output
-    #     model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
-    #     result = whisperx.align(result["segments"], model_a, metadata, audio, device, return_char_alignments=False)
-    #     # print(result["segments"]) # after alignment
-        
-    #     # delete model if low on GPU resources
-    #     # import gc; gc.collect(); torch.cuda.empty_cache(); del model_a
-        
-    #     # 3. Assign speaker labels
-    #     # diarize_model = whisperx.DiarizationPipeline(use_auth_token=HUGGINGFACE_API_TOKEN, device=device)
-        
-    #     # # add min/max number of speakers if known
-    #     # diarize_segments = diarize_model(audio_file)
-    #     # # diarize_model(audio_file, min_speakers=min_speakers, max_speakers=max_speakers)
-        
-    #     # result = whisperx.assign_word_speakers(diarize_segments, result)
-    #     # print(diarize_segments)
-    #     # print(result["segments"]) # segments are now assigned speaker IDs
-    #     result["language"] = language
-        
-    #     srt_sub = self.segments_to_srt(result['segments'])
-    #     srt_file = os.path.join(os.path.dirname(self.video_path), f'{Path(self.video_path).stem}.srt')
-    #     with open(srt_file, 'w') as f:
-    #         f.write(srt_sub)
-
-    #     print(f"subtitle is saved at {srt_file}")
-        
-        
-    #     # Convert word segments to sentences
-    #     sentence_segments = word_segment_to_sentence(result["word_segments"])
-        
-    #     # Merge sentence segments if they meet certain conditions
-    #     merged_sentence_segments = sentence_segments_merger(sentence_segments)
-    
-    #     srt_sub = self.segments_to_srt(merged_sentence_segments)
-    #     srt_file = os.path.join(os.path.dirname(self.video_path), f'{Path(self.video_path).stem}_word.srt')
-    #     with open(srt_file, 'w') as f:
-    #         f.write(srt_sub)
-
-    #     print(f"subtitle is saved at {srt_file}")
-        
-        
-
-    #     return result, srt_file
-        
-        
+  
     def transcribe_audio(self):
-        model = whisper.load_model(self.model)
-
-        # load audio and pad/trim it to fit 30 seconds
-        audio = whisper.load_audio(self.video_path)
-        audio = whisper.pad_or_trim(audio)
-
-        # make log-Mel spectrogram and move to the same device as the model
-        mel = whisper.log_mel_spectrogram(audio).to(model.device)
-
-        # detect the spoken language
-        _, probs = model.detect_language(mel)
-        detected_language = max(probs, key=probs.get)
-        print(f"Detected language: {detected_language}")
-
-        print("Transcribing audio...")
-        options = whisper.DecodingOptions(fp16=False, language=detected_language)
-        result = model.transcribe(self.video_path, **options.__dict__, verbose=False, word_timestamps=True)
+        if self.model == 'large':
+            self.model = 'large-v2'
+            
+        model = WhisperModel(self.model, device="cuda", compute_type="float16")
+        # or run on GPU with INT8
+        # model = WhisperModel(model_size, device="cuda", compute_type="int8_float16")
+        # or run on CPU with INT8
+        # model = WhisperModel(model_size, device="cpu", compute_type="int8")
         
-        # without word_segment_to_sentence
-        # srt_sub = self.segments_to_srt(result['segments'])
-        # srt_file = os.path.join(os.path.dirname(self.video_path), f'{Path(self.video_path).stem}.srt')
-        # with open(srt_file, 'w') as f:
-        #     f.write(srt_sub)
-
-        # print(f"subtitle is saved at {srt_file}")
+        print("Transcribing audio...")
+        segments, info = model.transcribe(self.video_path, word_timestamps=True)
+        
+        print("Detected language '%s' with probability %f" % (info.language, info.language_probability))
+        self.video_language = info.language
 
         words_list = []
-        for segment in result["segments"]:
-            for word in segment["words"]:
-                word.pop('probability', None)
-            words_list += segment["words"]
-        
-        # print(words_list)
+        for segment in segments:
+            print("[%.2fs -> %.2fs] %s" % (segment.start, segment.end, segment.text))
+            for word in segment.words:
+                # print("[%.2fs -> %.2fs] %s" % (word.start, word.end, word.word))
+                dict_word = {'word': word.word, 'start': word.start, 'end': word.end}
+                words_list.append(dict_word)
+            
+        print(words_list)
         # Convert word segments to sentences
         sentence_segments = word_segment_to_sentence(words_list)
         
         # Merge sentence segments if they meet certain conditions
         merged_sentence_segments = sentence_segments_merger(sentence_segments)
-        result["segments"] = merged_sentence_segments
         
-        # print(merged_sentence_segments)
-        srt_sub = self.segments_to_srt(result['segments'])
+        print(merged_sentence_segments)
+        srt_sub = self.segments_to_srt(merged_sentence_segments)
         srt_file = os.path.join(os.path.dirname(self.video_path), f'{Path(self.video_path).stem}.srt')
         with open(srt_file, 'w') as f:
             f.write(srt_sub)
 
         print(f"subtitle is saved at {srt_file}")
-        
+        result = {'segments' : merged_sentence_segments, 'language': info.language}
         return result, srt_file
 
     def translate_text_with_whisper(self):
@@ -304,7 +228,7 @@ class SubtitleProcessor:
         tokenizer = M2M100Tokenizer.from_pretrained("facebook/m2m100_418M")
 
         texts = self.batch_text(result, gs=32)
-        texts_tr = self.batch_translate(texts, tokenizer, model_tr, src_lang=result['language'], tr_lang=self.target_language)
+        texts_tr = self.batch_translate(texts, tokenizer, model_tr, src_lang=self.video_language, tr_lang=self.target_language)
 
         return texts_tr
 
@@ -400,7 +324,7 @@ class SubtitleProcessor:
                     translated_transcript = self.translate_text(english_transcript)
                 elif self.translation_method == 'google':
                     # Translate the transcript to another language using Google Translate
-                    translated_transcript = self.batch_translate_google(english_transcript, src_lang=english_transcript['language'], tr_lang=self.target_language)
+                    translated_transcript = self.batch_translate_google(english_transcript, src_lang=self.video_language, tr_lang=self.target_language)
                 # Save the translated subtitles to a separate SRT file
                 segs_tr = copy.deepcopy(english_transcript['segments'])
                 self.save_translated_srt(segs_tr, translated_transcript)
