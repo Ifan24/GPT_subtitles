@@ -16,97 +16,87 @@ from faster_whisper import WhisperModel
 # load_dotenv()
 # HUGGINGFACE_API_TOKEN = os.getenv("HUGGINGFACE_API_TOKEN")
 
+class SegmentMerger:
+    def __init__(self, max_text_len=80, max_duration=15, min_text_len=8, max_segment_interval=2):
+        self.max_text_len = max_text_len
+        self.max_duration = max_duration
+        self.min_text_len = min_text_len
+        self.max_segment_interval = max_segment_interval
+        self.end_of_sentence_symbols = tuple(['.', '。', ',', '，', '!', '！', '?', '？', ':', '：', '”', ')', ']', '}', ';'])
 
-def word_segment_to_sentence(segments, max_text_len=80, max_duration=15):
-    """
-    Convert word segments to sentences.
-    :param segments: [{"word": "Hello,", "start": 1.1, "end": 2.2}, {"word": "World!", "start": 3.3, "end": 4.4}]
-    :type segments: list of dicts
-    :return: Segments, but with sentences instead of words.
-    :rtype: list of dicts  [{"text": "Hello, World!", "start": 1.1, "end": 4.4}]
-    """
-    
-    
-    end_of_sentence_symbols = tuple(['.', '。', ',', '，', '!', '！', '?', '？', ':', '：', '”', ')', ']', '}', ';'])
-    sentence_results = []
-    
-    current_sentence = {"text": "", "start": 0, "end": 0}
-    current_sentence_template = {"text": "", "start": 0, "end": 0}
-    
-    for segment in segments:
-        if current_sentence["text"] == "":
-            current_sentence["start"] = segment["start"]
-        current_sentence["text"] += segment["word"]
-        current_sentence["end"] = segment["end"]
+    def process_segments(self, segments):
+        """
+        Convert word segments to sentences and merge them if necessary.
+        :param segments: List of word segments
+        :type segments: list of dicts
+        :return: List of merged sentence segments
+        :rtype: list of dicts
+        """
         
-        # Check if the segment ends a sentence, or if the current sentence exceeds the max length or duration
-        if segment["word"][-1] in end_of_sentence_symbols or \
-           len(current_sentence["text"]) >= max_text_len or \
-           (current_sentence["end"] - current_sentence["start"]) >= max_duration:
-            # Trim leading/trailing whitespace and add the sentence to the results
-            current_sentence["text"] = current_sentence["text"].strip()
-            sentence_results.append(copy.deepcopy(current_sentence))
-            
-            # Reset the current sentence
-            current_sentence = copy.deepcopy(current_sentence_template)
-            
-    return sentence_results
+        sentence_results = []
+        current_sentence = {"text": "", "start": 0, "end": 0}
+        current_sentence_template = {"text": "", "start": 0, "end": 0}
+        for segment in segments:
+            if current_sentence["text"] == "":
+                current_sentence["start"] = segment["start"]
+            current_sentence["text"] += segment["word"]
+            current_sentence["end"] = segment["end"]
+            if self._is_end_of_sentence(segment) or self._is_max_length_exceeded(current_sentence) or self._is_max_duration_exceeded(current_sentence):
+                current_sentence["text"] = current_sentence["text"].strip()
+                sentence_results.append(copy.deepcopy(current_sentence))
+                current_sentence = copy.deepcopy(current_sentence_template)
+        return self.merge_segments(sentence_results)
 
-
-def sentence_segments_merger(segments, min_text_len=8, max_text_len=80, max_segment_interval=2, max_duration=15):
-    """
-    Merge sentence segments to one segment, if the length of the text is less than max_text_len.
-    :param segments: [{"text": "Hello, World!", "start": 1.1, "end": 4.4}, {"text": "Hello, World!", "start": 1.1, "end": 4.4}]
-    :type segments: list of dicts
-    :param max_text_len: Max length of the text
-    :type max_text_len: int
-    :return: Segments, but with merged sentences.
-    :rtype: list of dicts  [{"text": "Hello, World! Hello, World!", "start": 1.1, "end": 4.4}]
-    """
-    
-    merged_segments = []
-    current_segment = {"text": "", "start": 0, "end": 0}
-    
-    for i, segment in enumerate(segments):
-        if current_segment["text"] == "":
-            current_segment["start"] = segment["start"]
-
-        # Check if the segment can be merged with the current merged segment
-        if segment["start"] - current_segment["end"] < max_segment_interval and \
-           len(current_segment["text"] + " " + segment["text"]) < max_text_len and \
-           (segment["end"] - current_segment["start"]) < max_duration:
-            # Merge the segment with the current merged segment
-            current_segment["text"] += ' ' + segment["text"]
-            current_segment["end"] = segment["end"]
-        else:
-            # If the current merged segment is not empty, trim leading/trailing whitespace
-            if current_segment["text"] != "":
-                current_segment["text"] = current_segment["text"].strip()
-                
-                # If the current merged segment is too short and there's a next segment
-                if len(current_segment["text"]) < min_text_len and i < len(segments) - 1:
-                    next_segment = segments[i + 1]
-                    
-                    # Check if the current merged segment can be merged with the next segment
-                    if len(current_segment["text"] + " " + next_segment["text"]) < max_text_len:
-                        # Merge the current merged segment with the next segment
-                        current_segment["text"] += ' ' + next_segment["text"]
-                        current_segment["end"] = next_segment["end"]
-                        continue  # Skip the next segment in the next iteration
-                
-                # Add the current merged segment to the list of merged segments
-                merged_segments.append(copy.deepcopy(current_segment))
-            
-            # Set the current merged segment to the current segment
-            current_segment = copy.deepcopy(segment)
-    
-    # Append the last segment if not empty
-    if current_segment["text"] != "":
-        current_segment["text"] = current_segment["text"].strip()
-        merged_segments.append(copy.deepcopy(current_segment))
+    def merge_segments(self, segments):
+        """
+        Merge sentence segments to one segment, if the length of the text is less than max_text_len.
+        :param segments: List of sentence segments
+        :type segments: list of dicts
+        :return: List of merged sentence segments
+        :rtype: list of dicts
+        """
         
-    return merged_segments
-    
+        merged_segments = []
+        current_segment = {"text": "", "start": 0, "end": 0}
+        for i, segment in enumerate(segments):
+            if current_segment["text"] == "":
+                current_segment["start"] = segment["start"]
+            if self._can_merge(current_segment, segment):
+                current_segment["text"] += ' ' + segment["text"]
+                current_segment["end"] = segment["end"]
+            else:
+                if current_segment["text"] != "":
+                    current_segment["text"] = current_segment["text"].strip()
+                    if self._is_too_short(current_segment, i, segments):
+                        next_segment = segments[i + 1]
+                        if self._can_merge(current_segment, next_segment):
+                            current_segment["text"] += ' ' + next_segment["text"]
+                            current_segment["end"] = next_segment["end"]
+                            continue
+                    merged_segments.append(copy.deepcopy(current_segment))
+                current_segment = copy.deepcopy(segment)
+        if current_segment["text"] != "":
+            current_segment["text"] = current_segment["text"].strip()
+            merged_segments.append(copy.deepcopy(current_segment))
+        return merged_segments
+
+    def _is_end_of_sentence(self, segment):
+        return segment["word"][-1] in self.end_of_sentence_symbols
+
+    def _is_max_length_exceeded(self, current_sentence):
+        return len(current_sentence["text"]) >= self.max_text_len
+
+    def _is_max_duration_exceeded(self, current_sentence):
+        return (current_sentence["end"] - current_sentence["start"]) >= self.max_duration
+
+    def _can_merge(self, current_segment, segment):
+        return segment["start"] - current_segment["end"] < self.max_segment_interval and \
+               len(current_segment["text"] + " " + segment["text"]) < self.max_text_len and \
+               (segment["end"] - current_segment["start"]) < self.max_duration
+
+    def _is_too_short(self, current_segment, i, segments):
+        return len(current_segment["text"]) < self.min_text_len and i < len(segments) - 1
+ 
 class SubtitleProcessor:
     def __init__(self, video_path, target_language, model, translation_method):
         self.video_path = video_path
@@ -114,6 +104,7 @@ class SubtitleProcessor:
         self.model = model
         self.translation_method = translation_method
         self.video_language = 'en'
+        self.segment_merger = SegmentMerger()
 
     def segments_to_srt(self, segs):
         text = []
@@ -165,11 +156,8 @@ class SubtitleProcessor:
                 words_list.append(dict_word)
             
         print(words_list)
-        # Convert word segments to sentences
-        sentence_segments = word_segment_to_sentence(words_list)
-        
-        # Merge sentence segments if they meet certain conditions
-        merged_sentence_segments = sentence_segments_merger(sentence_segments)
+        # Convert word segments to sentences and merge them
+        merged_sentence_segments = self.segment_merger.process_segments(words_list)
         
         print(merged_sentence_segments)
         srt_sub = self.segments_to_srt(merged_sentence_segments)
