@@ -104,7 +104,7 @@ Contributions are more than welcome!
 - [ ] Implement a GUI to make the tool more user-friendly.
 - [ ] Add more robust error handling for GPT-3.5 responses
 - [ ] Explore the possibility of using offline small GPT models, such as [FastChat](https://github.com/lm-sys/FastChat)
-
+- [ ] [Fine-tune Whisper](https://github.com/jumon/whisper-finetuning) on (English audio, Chinese subtitle) dataset to improve x-to-Chinese translation accuracy
 
 # Google Colab Example
 You can also try out this script using a Google Colab notebook. Click the link below to access the example:
