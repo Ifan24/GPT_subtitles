@@ -177,9 +177,9 @@ class Translator:
 
         system_content = ("You are a program responsible for translating subtitles. Your task is to "
                           f"translate the subtitles delimited by triple backticks into {self.target_language} line by line for the "
-                          f"video titled '{self.titles}'. Please do not create "
+                          f"video titled '{self.titles}'. Translate with informal slang if necessary. Please do not create "
                           "the following subtitles on your own. Please do not output any text other than "
-                          "the translation. You will receive some additional information for your reference only delimited by triple dashes, such as a few lines of previous subtitles, "
+                          "the translation. You will receive some additional information for your reference only, delimited by triple dashes, such as a few lines of previous subtitles, "
                           "a few lines of the next subtitle, the translation of the previous subtitle and maybe error messages."
                           "Please ensure that each translated line corresponds to the "
                           "same numbered line in the Original subtitles, without repetition. The translated "

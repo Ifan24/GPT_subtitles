@@ -1,13 +1,11 @@
 import os
 import argparse
 import whisper
-from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer
 from tqdm import tqdm
 from pathlib import Path
 import copy
-from googletrans import Translator
-import time
 from faster_whisper import WhisperModel
+from translation_service import GoogleTranslateService, M2M100TranslateService
 
 # import whisperx
 
@@ -97,6 +95,7 @@ class SegmentMerger:
     def _is_too_short(self, current_segment, i, segments):
         return len(current_segment["text"]) < self.min_text_len and i < len(segments) - 1
  
+ 
 class SubtitleProcessor:
     def __init__(self, video_path, target_language, model, translation_method):
         self.video_path = video_path
@@ -105,6 +104,12 @@ class SubtitleProcessor:
         self.translation_method = translation_method
         self.video_language = 'en'
         self.segment_merger = SegmentMerger()
+
+        if translation_method == 'google':
+            self.translation_service = GoogleTranslateService()
+        elif translation_method == 'm2m100':
+            self.translation_service = M2M100TranslateService()
+        
 
     def segments_to_srt(self, segs):
         text = []
@@ -126,11 +131,6 @@ class SubtitleProcessor:
 
         return "\n".join(text)
 
-    def transcribed_text(self, segs):
-        texts = [s['text'] for s in segs]
-        text = '\n'.join(texts)
-        return text
-  
     def transcribe_audio(self):
         if self.model == 'large':
             self.model = 'large-v2'
@@ -155,11 +155,11 @@ class SubtitleProcessor:
                 dict_word = {'word': word.word, 'start': word.start, 'end': word.end}
                 words_list.append(dict_word)
             
-        print(words_list)
+        # print(words_list)
         # Convert word segments to sentences and merge them
         merged_sentence_segments = self.segment_merger.process_segments(words_list)
         
-        print(merged_sentence_segments)
+        # print(merged_sentence_segments)
         srt_sub = self.segments_to_srt(merged_sentence_segments)
         srt_file = os.path.join(os.path.dirname(self.video_path), f'{Path(self.video_path).stem}.srt')
         with open(srt_file, 'w') as f:
@@ -168,88 +168,7 @@ class SubtitleProcessor:
         print(f"subtitle is saved at {srt_file}")
         result = {'segments' : merged_sentence_segments, 'language': info.language}
         return result, srt_file
-
-    def translate_text_with_whisper(self):
-
-        print("Translating text with Whisper...")
-        model = whisper.load_model(self.model)
-        options = whisper.DecodingOptions(fp16=False, language=self.target_language, task="transcribe")
-        result = model.transcribe(self.video_path, **options.__dict__, verbose=False)
-
-        srt_sub = self.segments_to_srt(result['segments'])
-        srt_file = os.path.join(os.path.dirname(self.video_path), f'{Path(self.video_path).stem}_{self.target_language}.srt')
-        with open(srt_file, 'w') as f:
-            f.write(srt_sub)
-
-        print(f"translated subtitle is saved at {srt_file}")
-
-        return result
-
-    def batch_text(self, result, gs=32):
-        """split list into small groups of group size `gs`."""
-        segs = result['segments']
-        length = len(segs)
-        mb = length // gs
-        text_batches = []
-        for i in range(mb):
-            text_batches.append([s['text'] for s in segs[i * gs:(i + 1) * gs]])
-        if mb * gs != length:
-            text_batches.append([s['text'] for s in segs[mb * gs:length]])
-        return text_batches
-
-    def _translate(self, text, tokenizer, model_tr, src_lang='en', tr_lang='zh'):
-        tokenizer.src_lang = src_lang
-        encoded_en = tokenizer(text, return_tensors="pt", padding=True)
-        generated_tokens = model_tr.generate(**encoded_en, forced_bos_token_id=tokenizer.get_lang_id(tr_lang))
-        return tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
-
-    def batch_translate(self, texts, tokenizer, model_tr, src_lang='en', tr_lang='zh'):
-        translated = []
-        for t in tqdm(texts):
-            tt = self._translate(t, tokenizer, model_tr, src_lang=src_lang, tr_lang=tr_lang)
-            translated += tt
-        return translated
-
-    def translate_text(self, result):
-        print("Translating text...")
-        model_tr = M2M100ForConditionalGeneration.from_pretrained("facebook/m2m100_418M")
-        tokenizer = M2M100Tokenizer.from_pretrained("facebook/m2m100_418M")
-
-        texts = self.batch_text(result, gs=32)
-        texts_tr = self.batch_translate(texts, tokenizer, model_tr, src_lang=self.video_language, tr_lang=self.target_language)
-
-        return texts_tr
-
-    def translate_text_google(self, text, src_lang='en', tr_lang='zh-cn'):
-        translator = Translator()
-        translated = []
-        for t in text:
-            # translation = translator.translate(t, src=src_lang, dest=tr_lang)
-            inference_not_done = True
-            while inference_not_done:
-                try:
-                    translation = translator.translate(t, src=src_lang, dest=tr_lang)
-                    inference_not_done = False
-                except Exception as e:
-                    print(f"Waiting 15 seconds")
-                    print(f"Error was: {e}")
-                    time.sleep(15)
-
-            translated.append(translation.text)
-        return translated
-
-    def batch_translate_google(self, result, src_lang='en', tr_lang='zh-cn'):
-        if tr_lang == 'zh':
-            tr_lang = 'zh-cn'
-
-        texts = self.batch_text(result, gs=25)
-        translated = []
-
-        for t in tqdm(texts):
-            tt = self.translate_text_google(t, src_lang=src_lang, tr_lang=tr_lang)
-            translated += tt
-        return translated
-
+    
     def save_translated_srt(self, segs, translated_text):
         """Save the translated text to a separate SRT file."""
         for i, s in enumerate(segs):
@@ -288,6 +207,23 @@ class SubtitleProcessor:
 
         print(f'combine translated subtitle is saved at {sub_translated}')
 
+    def translate_with_whisper(self, language):
+            
+        model = WhisperModel('large-v2', device="cuda", compute_type="float16")
+        
+        print("Transcribing audio...")
+        segments, info = model.transcribe(self.video_path, word_timestamps=True, language=language)
+        text_list = []
+        for segment in segments:
+            print("[%.2fs -> %.2fs] %s" % (segment.start, segment.end, segment.text))
+            text_list.append({'text': segment.text, 'start': segment.start, 'end': segment.end})
+        srt_sub = self.segments_to_srt(text_list)
+        srt_file = os.path.join(os.path.dirname(self.video_path), f'{Path(self.video_path).stem}_{language}_whisper.srt')
+        with open(srt_file, 'w') as f:
+            f.write(srt_sub)
+
+        print(f"subtitle is saved at {srt_file}")
+        
     def process(self):
         # Transcribe the video
         english_transcript, srt_file = self.transcribe_audio()
@@ -297,26 +233,18 @@ class SubtitleProcessor:
             # Translate the transcript to another language using gpt-3.5 or gpt-4 Translate
             translate_with_gpt(input_file=srt_file, target_language=self.target_language)
 
+        elif self.translation_method == 'whisper':
+            self.translate_with_whisper(self.target_language)
+            
         else:
-            if self.translation_method == 'whisper':
-                # Translate the transcript to another language using Whisper
-                # it is better to use large model for translating
-                if self.model != 'large':
-                    print("Whisper model is not large, it is better to use large model for translating. (default: small)")
-
-                translated_transcript = self.translate_text_with_whisper()
-
-            else:
-                if self.translation_method == 'm2m100':
-                    # Translate the transcript to another language using M2M100
-                    translated_transcript = self.translate_text(english_transcript)
-                elif self.translation_method == 'google':
-                    # Translate the transcript to another language using Google Translate
-                    translated_transcript = self.batch_translate_google(english_transcript, src_lang=self.video_language, tr_lang=self.target_language)
-                # Save the translated subtitles to a separate SRT file
-                segs_tr = copy.deepcopy(english_transcript['segments'])
-                self.save_translated_srt(segs_tr, translated_transcript)
-
+            # Translate the transcript to another language
+            translated_transcript = self.translation_service.translate(english_transcript, src_lang=self.video_language, tr_lang=self.target_language)
+            print(translated_transcript)
+            # Save the translated subtitles to a separate SRT file
+            segs_tr = copy.deepcopy(english_transcript['segments'])
+            
+            self.save_translated_srt(segs_tr, translated_transcript)
+    
             # Add dual subtitles to the video
             self.add_dual_subtitles(english_transcript, translated_transcript)
 
