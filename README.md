@@ -103,7 +103,7 @@ Contributions are more than welcome!
 - [ ] Fix the bug that prevents embedding dual subtitles into the video.
 - [ ] Implement a GUI to make the tool more user-friendly.
 - [ ] Add more robust error handling for GPT-3.5 responses
-- [ ] Explore the possibility of using offline small GPT models, such as [FastChat](https://github.com/lm-sys/FastChat)
+- [x] Explore the possibility of using offline small GPT models. (I tried some models on [webGUI](https://github.com/oobabooga/text-generation-webui) with the prompt, but they mostly output random text or translation that are worst than google translate)
 - [ ] [Fine-tune Whisper](https://github.com/jumon/whisper-finetuning) on (English audio, Chinese subtitle) dataset to improve x-to-Chinese translation accuracy
 
 # Google Colab Example

@@ -181,7 +181,7 @@ class Translator:
                           "the following subtitles on your own. Please do not output any text other than "
                           "the translation. You will receive some additional information for your reference only, delimited by triple dashes, such as a few lines of previous subtitles, "
                           "a few lines of the next subtitle, the translation of the previous subtitle and maybe error messages."
-                          "Please ensure that each translated line corresponds to the "
+                          "Please do not output any triple backticks (```) or triple dashes (---). Please ensure that each translated line corresponds to the "
                           "same numbered line in the Original subtitles, without repetition. The translated "
                           f"subtitles should have the same number of lines ({subtitles_length}) as the source subtitles and "
                           "the numbering should be maintained. If the last sentence in the current subtitle "
@@ -217,6 +217,7 @@ class Translator:
 
         translated_subtitles = response.choices[0].get("message").get("content").encode("utf8").decode()
         print("========Response========\n")
+        translated_subtitles = ' '.join(translated_subtitles.replace('```', '').replace('---', '').split())
         print(translated_subtitles)
     
         if self.model == "gpt-3.5-turbo":
@@ -303,7 +304,7 @@ class Translator:
         print("========End of Translate summary=======\n")
         return translated, raw_translated
 
-def translate_with_gpt(input_file, batch_size, target_language, model, video_info=None):
+def translate_with_gpt(input_file, target_language, batch_size=3, model='gpt-3.5-turbo', video_info=None):
     # Extract the file name without the extension
     file_name = os.path.splitext(os.path.basename(input_file))[0]
     
@@ -328,7 +329,7 @@ def main():
     
     args = parser.parse_args()
 
-    translate_with_gpt(args.input_file, args.batch_size, args.language, args.model, args.video_info)
+    translate_with_gpt(args.input_file, args.language, args.batch_size , args.model, args.video_info)
 
 
 

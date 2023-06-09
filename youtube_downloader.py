@@ -62,6 +62,18 @@ class SRTDownloader:
             print(f"Failed to download transcript. Error: {e}")
             return False
 
+import re
+
+from PIL import Image
+
+def resize_image(input_path, output_path, new_dimensions):
+    with Image.open(input_path) as img:
+        resized_img = img.resize(new_dimensions)
+        resized_img.save(output_path)
+                
+def sanitize_filename(filename):
+    # This will replace reserved characters with an underscore
+    return re.sub(r'[\/:*?"<>|]', '_', filename)
 
 class YouTubeDownloader:
     def __init__(self, url, target_language='zh-Hans'):
@@ -77,11 +89,12 @@ class YouTubeDownloader:
                 title = yt.title
                 break
             except:
-                print("Failed to get name. Retrying... Press Ctrl+C to exit")
+                print("Failed to get name. Retrying... Press Ctrl+Z to exit")
                 time.sleep(1)
                 yt = YouTube(self.url)
                 continue
 
+        title = sanitize_filename(title)
         print('Downloading video: ' + title)
 
         # Create a folder called 'videos' if it does not exist
@@ -104,8 +117,18 @@ class YouTubeDownloader:
         thumbnail = Thumbnail(self.url)
         thumbnail.fetch()
         thumbnail.save(dir=video_folder, filename='thumbnail', overwrite=True)
-        print(f'Thumbnail saved at: {video_folder}')
-
+        
+        # Resize the thumbnail and save as a new file
+        thumbnail_path = os.path.join(video_folder, 'thumbnail.jpg')
+        resized_thumbnail_path = os.path.join(video_folder, 'thumbnail_resized.jpg')
+        
+        with Image.open(thumbnail_path) as img:
+            resized_img = img.resize((1152, 720))
+            resized_img.save(resized_thumbnail_path)  # save the resized image as a new file
+        
+        print(f'Original thumbnail saved at: {thumbnail_path}')
+        print(f'Resized thumbnail saved at: {resized_thumbnail_path}')
+        
         # Download the video using yt-dlp
         output_filename = os.path.join(video_folder, f"{title}.%(ext)s")
         youtube_dl_command = f"yt-dlp -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]' --merge-output-format mp4 -o \"{output_filename}\" {self.url}"
@@ -115,10 +138,13 @@ class YouTubeDownloader:
         downloaded_video_path = None
         count = 0
         while downloaded_video_path is None:
+            count = 0
             for file in os.listdir(video_folder):
                 if file.endswith(".mp4"):
                     downloaded_video_path = os.path.join(video_folder, file)
-                    break
+                    count += 1
+            if count == 1:
+                break
             print(f" | Waiting for video to download... | time elapsed: {count} seconds |")
             count += 30
             time.sleep(30)
