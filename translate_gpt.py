@@ -217,7 +217,7 @@ class Translator:
 
         translated_subtitles = response.choices[0].get("message").get("content").encode("utf8").decode()
         print("========Response========\n")
-        translated_subtitles = ' '.join(translated_subtitles.replace('```', '').replace('---', '').split())
+        translated_subtitles = translated_subtitles.replace('```', '').replace('---', '')
         print(translated_subtitles)
     
         if self.model == "gpt-3.5-turbo":
@@ -264,17 +264,32 @@ class Translator:
         number_of_retry = 0
         total_wasted_dollars = 0
         prev_translated_subtitle = None
+        def extract_line(text, num_lines, is_next=False):
+            """
+            Extracts a specific number of lines from the given text.
+    
+            The function splits the input text into separate lines, and then
+            returns either the first or last num_lines lines, based on the value
+            of the is_next flag.
+            """
+    
+            if text is None:
+                return None
+            entries = text.split('\n\n')
+            if is_next:
+                selected_entries = '\n\n'.join(entries[:num_lines])
+            else:
+                selected_entries = '\n\n'.join(entries[-num_lines:])
+            return selected_entries
+            
         for i, t in enumerate(tqdm(subtitle_batches)):
             prev_subtitle = subtitle_batches[i - 1] if i > 0 else None
             next_subtitle = subtitle_batches[i + 1] if i < len(subtitle_batches) - 1 else None
-            def extract_line(text):
-                if text is None:
-                    return None
-                lines = text.split('\n', 3)
-                first_two_lines = '\n'.join(lines[:3])
-                return first_two_lines
-            next_subtitle = extract_line(next_subtitle)
             
+            # choose the last 2 lines of the previous subtitle and the first line of the next subtitle
+            prev_subtitle = extract_line(prev_subtitle, 2)
+            next_subtitle = extract_line(next_subtitle, 1, is_next=True)
+
             tt, used_dollars, retry_count, wasted_dollars = self.translate_subtitles(t, prev_subtitle, next_subtitle, prev_translated_subtitle)
             prev_translated_subtitle = tt
             raw_translated.append(tt)
