@@ -6,6 +6,7 @@ from pathlib import Path
 import copy
 from faster_whisper import WhisperModel
 from translation_service import GoogleTranslateService, M2M100TranslateService
+import json
 
 # import whisperx
 
@@ -32,13 +33,14 @@ class SegmentMerger:
         """
         
         sentence_results = []
-        current_sentence = {"text": "", "start": 0, "end": 0}
-        current_sentence_template = {"text": "", "start": 0, "end": 0}
+        current_sentence = {"text": "", "start": 0, "end": 0, "words": []}
+        current_sentence_template = {"text": "", "start": 0, "end": 0, "words": []}
         for segment in segments:
             if current_sentence["text"] == "":
                 current_sentence["start"] = segment["start"]
             current_sentence["text"] += segment["word"]
             current_sentence["end"] = segment["end"]
+            current_sentence["words"].append(segment)
             if self._is_end_of_sentence(segment) or self._is_max_length_exceeded(current_sentence) or self._is_max_duration_exceeded(current_sentence):
                 current_sentence["text"] = current_sentence["text"].strip()
                 sentence_results.append(copy.deepcopy(current_sentence))
@@ -55,13 +57,14 @@ class SegmentMerger:
         """
         
         merged_segments = []
-        current_segment = {"text": "", "start": 0, "end": 0}
+        current_segment = {"text": "", "start": 0, "end": 0, "words": []}
         for i, segment in enumerate(segments):
             if current_segment["text"] == "":
                 current_segment["start"] = segment["start"]
             if self._can_merge(current_segment, segment):
                 current_segment["text"] += ' ' + segment["text"]
                 current_segment["end"] = segment["end"]
+                current_segment["words"].extend(segment["words"])  # merge the word lists
             else:
                 if current_segment["text"] != "":
                     current_segment["text"] = current_segment["text"].strip()
@@ -70,6 +73,7 @@ class SegmentMerger:
                         if self._can_merge(current_segment, next_segment):
                             current_segment["text"] += ' ' + next_segment["text"]
                             current_segment["end"] = next_segment["end"]
+                            current_segment["words"].extend(next_segment["words"])  # merge the word lists
                             continue
                     merged_segments.append(copy.deepcopy(current_segment))
                 current_segment = copy.deepcopy(segment)
@@ -77,6 +81,7 @@ class SegmentMerger:
             current_segment["text"] = current_segment["text"].strip()
             merged_segments.append(copy.deepcopy(current_segment))
         return merged_segments
+
 
     def _is_end_of_sentence(self, segment):
         return segment["word"][-1] in self.end_of_sentence_symbols
@@ -154,8 +159,13 @@ class SubtitleProcessor:
                 # print("[%.2fs -> %.2fs] %s" % (word.start, word.end, word.word))
                 dict_word = {'word': word.word, 'start': word.start, 'end': word.end}
                 words_list.append(dict_word)
-            
+        
+        word_list_file = os.path.join(os.path.dirname(self.video_path), f'{Path(self.video_path).stem}.json')
+        with open(word_list_file, 'w', encoding='utf-8') as f:
+            json.dump(words_list, f, ensure_ascii=False, indent=4)
+        print(f"word level segments is saved at {word_list_file}")
         # print(words_list)
+        
         # Convert word segments to sentences and merge them
         merged_sentence_segments = self.segment_merger.process_segments(words_list)
         

@@ -1,5 +1,5 @@
 import openai
-import json
+import ujson
 import os
 from tqdm import tqdm
 import re
@@ -123,77 +123,201 @@ class Translator:
         if warning_message:
             prompt = f"In a previous request sent to OpenAI, the response is problematic. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without merging lines or altering the original sentence structure, even if it's unfinished. please do not create the subtitles that are not matching the corresponding line and (!!important) make sure that your reply only contain the {subtitles_length} lines, the translated subtitles have the same number of lines ({subtitles_length}) as the source subtitles. Learn from your mistake. Here is the warning message generated based on your previous response:\n---{warning_message}---\n\n"
             # prompt += f"Previous Response:\n---{prev_response}---\n\n"
+
+
+        system_content = '''You are a program responsible for translating subtitles. 
+
+- Your task is to translate the current batch of subtitles into {self.target_language} for the video titled '{self.titles}'. 
+
+- Translate with informal slang if necessary, ensuring that the translation is accurate and reflects the context and terminology. Please do not output any text other than the translation. 
+
+- You will also receive some additional information for your reference only, such as the previous batch of subtitles, the translation of the previous batch, the next batch of subtitle, and maybe error messages. 
+
+- Please ensure that each line in the current batch has a corresponding translated line. 
+
+- If the last sentence in the current batch is incomplete, you may ignore the last sentence. If the first sentence in the current batch is incomplete, you may combine the last sentence in the last batch to make the sentence complete. 
+
+- Please only output the translation of the current batch of subtitles (current_batch_subtitles_translation).
+
+- Please output proper JSON with this format:
+{
+    "current_batch_subtitles_translation": [
+        {
+            "index": <int>,
+            "original_text": <str>,
+            "translation": <str>
+        }
+    ]
+}
+
+- Additional information for the video: {self.video_info}
+
+- Target language: {self.target_language}
+'''
+        
+        example_user_input1 = '''{
+    "previous_batch_subtitles": [
+        {
+            "index": 23,
+            "original_text": "with this issue, though they didn't elaborate on what exactly that would mean.",
+            "translation": "有关这个问题，尽管他们没有详细说明这究竟意味着什么。"
+        },
+        {
+            "index": 24,
+            "original_text": "Another change they mentioned was the corpse explosion from necromancer that leaves",
+            "translation": "他们提到的另一个变化是死灵法师的尸爆"
+        }
+    ],
+    "current_batch_subtitles": [
+        {
+            "index": 25,
+            "original_text": "the shadow dot all over the screen that makes it so people can't see anything that's"
+        },
+        {
+            "index": 26,
+            "original_text": "going to be patched so that players can also be able to see what's going on in the"
+        },
+        {
+            "index": 27,
+            "original_text": "ground and not stand in harmful AoEs. Another really hot topic in"
+        }
+    ],
+    "next_batch_subtitles": [
+        {
+            "index": 28,
+            "original_text": "this livestream was dungeon elite packs and XP and how"
+        },
+        {
+            "index": 29,
+            "original_text": "to balance that and make it standard across the board."
+        }
+    ],
+    "Additional_information": "请准确翻译暗黑破环神4的游戏术语"
+}'''
+        
+        example_assistant_output1 = '''{
+    "current_batch_subtitles_translation": [
+        {
+            "index": 25,
+            "original_text": "the shadow dot all over the screen that makes it so people can't see anything that's",
+            "translation": "尸爆会让屏幕上布满阴影点，使人们无法看清屏幕上的任何东西，"
             
-            example = """
-        Here is an example of translating English subtitles into Simplified Chinese subtitles:
-        Input:
-        1
-        Let's talk about the messiah of small bean cinema, otherwise known as Wes Anderson.
+        },
+        {
+            "index": 26,
+            "original_text": "going to be patched so that players can also be able to see what's going on in the",
+            "translation": "这将会被修补，以便玩家能够看清屏幕上发生的情况，"
+            
+        },
+        {
+            "index": 27,
+            "original_text": "ground and not stand in harmful AoEs.",
+            "translation": "不会站在有害的AoEs（范围伤害技能）中。"
+            
+        }
+    ]
+}'''
         
-        2
-        By now most of you have likely been seduced at one time or another by this man's meticulously
+        example_user_input2 = '''{
+    "current_batch_subtitles": [
+        {
+            "index": 102,
+            "original_text": "You may find a chest piece for example that has like three different resistances"
+        },
+        {
+            "index": 103,
+            "original_text": "with like 50% or something like that and you think wow this is a lot of damage reduction"
+        }
+    ]
+}'''
         
-        3
-        crafted mise-en-scene, intensely symmetrical composition, or quirky, somewhat disaffected twee characters.
+        example_assistant_output2 = """{
+    "current_batch_subtitles_translation": [
+        {
+            "index": 102,
+            "original_text": "You may find a chest piece for example that has like three different resistances",
+            "translation": "你可能会看到一个胸甲有3个50%左右的抗性，"
+        },
+        {
+            "index": 103,
+            "original_text": "with like 50% or something like that and you think wow this is a lot of damage reduction",
+            "translation": "然后你会觉得哇，这是很大的伤害减免，"
+        }
+    ]
+}"""
         
-        4
-        He piqued our interest with Rushmore, dazzled us with Fantastic Mr. Fox, and stole our little
+        def process_line(line):
+            subtitles = []
+            lines = line.split("\n")
+            
+            i = 0
+            while i < len(lines):
+                # Skip empty lines
+                if lines[i].strip() == "":
+                    i += 1
+                    continue
+                
+                # Extract number and text
+                number = int(lines[i])
+                i += 1
+                original_text = lines[i]
+                
+                # Add to subtitles list
+                subtitles.append({"index": number, "original_text": original_text})
+                
+                # Move to next subtitle
+                i += 2
+                
+            # subtitles = []
+            # for i in range(0, len(lines), 2):
+            #     print(f"line: {lines[i]}")
+            #     index = int(lines[i])
+            #     text = lines[i+1]
+            #     subtitles.append({"index": index, "original_text": text})
+            return subtitles
         
-        5
-        hearts with Moonrise Kingdom.
+        user_input = {}
         
-        Output:
-        1
-        让我们来谈谈被誉为小豆电影救世主的韦斯·安德森。
-        
-        2
-        到目前为止，你们中的大多数人可能已经被这位导演的精心
-        
-        3
-        制作的布景、高度对称的构图或者古怪、有些冷漠的小清新角色所吸引过。
-        
-        4
-        他用《独立思考》(Rushmore) 激起了我们的兴趣，用《了不起的狐狸爸爸》(Fantastic Mr. Fox) 使我们眼花缭乱，
-        
-        5
-        用《月亮王国之恋》(Moonrise Kingdom) 偷走了我们的小心心。
-        
-            """
-            prompt += f"---{example}---\n\n"
-
         if prev_subtitle:
-            prompt += f"Previous subtitle: ---{prev_subtitle}---\n\n"
-
-        if prev_translated_subtitle:
-            prompt += f"Previous translated subtitle: ---{prev_translated_subtitle}:---\n\n"
-
-        if self.video_info:
-            prompt += f"Additional video information: ---{self.video_info}---\n\n"
-
+            previous_subtitles = process_line(prev_subtitle)
+            if prev_translated_subtitle:
+                translated_subtitles = process_line(prev_translated_subtitle)
+                # print(previous_subtitles)
+                # print(f"length of previous_subtitles: {len(previous_subtitles)}")
+                # print(translated_subtitles)
+                # print(f"length of translated_subtitles: {len(translated_subtitles)}")
+                
+                # Create a dictionary for faster lookup
+                index_to_translation = {item["index"]: item["original_text"] for item in translated_subtitles}
+                
+                # Loop through each item in previous_subtitles
+                for item in previous_subtitles:
+                    # Check if the index exists in translated_subtitles
+                    if item["index"] in index_to_translation:
+                        # Add the translation to previous_subtitles
+                        item["translation"] = index_to_translation[item["index"]]
+                    else:
+                        # Print error if index doesn't exist in translated_subtitles
+                        print(f"Error: index {item['index']} not found in translated subtitles")
+                                
+                    user_input["previous_batch_subtitles"] = previous_subtitles
+        
+        if subtitles:
+            user_input["current_batch_subtitles"] = process_line(subtitles)
+        
         if next_subtitle:
-            prompt += f"Next subtitle: ---{next_subtitle}---\n\n"
-
-        prompt += f"Translate the following subtitle:\n```{subtitles}```\n\n"
-
-        system_content = ("You are a program responsible for translating subtitles. Your task is to "
-                          f"translate the subtitles delimited by triple backticks into {self.target_language} line by line for the "
-                          f"video titled '{self.titles}'. Translate with informal slang if necessary. Please do not create "
-                          "the following subtitles on your own. Please do not output any text other than "
-                          "the translation. You will receive some additional information for your reference only, delimited by triple dashes, such as a few lines of previous subtitles, "
-                          "a few lines of the next subtitle, the translation of the previous subtitle and maybe error messages."
-                          "Please do not output any triple backticks (```) or triple dashes (---). Please ensure that each translated line corresponds to the "
-                          "same numbered line in the Original subtitles, without repetition. The translated "
-                          f"subtitles should have the same number of lines ({subtitles_length}) as the source subtitles and "
-                          "the numbering should be maintained. If the last sentence in the current subtitle "
-                          "is incomplete, you may combine the translation of the first few words in the "
-                          "next subtitle to make the sentence complete.  If the first sentence in the "
-                          "current subtitle is incomplete, you may combine the translation of the last few "
-                          "words in the last subtitle to make the sentence complete. If you need to merge the subtitles with the following line, "
-                          f"simply repeat the translation, do not leave the line empty or use a placeholder. Target language: {self.target_language}")
-
+            user_input["next_batch_subtitles"] = process_line(next_subtitle)
+            
+        if warning_message:
+            user_input["Warning_message"] = f"In a previous request sent to OpenAI, the response is problematic. Please double-check your answer."
+            
         messages = [
             {"role": "system", "content": system_content},
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": example_user_input1},
+            {"role": "assistant", "content": example_assistant_output1},
+            {"role": "user", "content": example_user_input2},
+            {"role": "assistant", "content": example_assistant_output2},
+            {"role": "user", "content": ujson.dumps(user_input)},
         ]
         
         print("========Messages========\n")
@@ -217,9 +341,29 @@ class Translator:
 
         translated_subtitles = response.choices[0].get("message").get("content").encode("utf8").decode()
         print("========Response========\n")
-        translated_subtitles = translated_subtitles.replace('```', '').replace('---', '')
+        # translated_subtitles = translated_subtitles.replace('```', '').replace('---', '')
         print(translated_subtitles)
     
+        # Parse JSON string into a Python dictionary
+        # replace single quotes used as delimiters with double quotes
+        json_string_with_double_quotes = re.sub(r"(\s*[\{\}:,]\s*)'([^']*)'", r'\1"\2"', translated_subtitles)
+        # remove trailing commas
+        pattern = re.compile(r',\s*}')
+        cleaned_json_string = re.sub(pattern, '}', json_string_with_double_quotes)
+
+        try:
+            # use ujson for faster parsing and unicode support
+            data = ujson.loads(cleaned_json_string)
+        except ujson.JSONDecodeError as e:
+            print(f"An error occurred while parsing JSON: {e}")
+    
+        # Extract translations and construct the output string
+        output_string = ""
+        for subtitle in data["current_batch_subtitles_translation"]:
+            index = subtitle["index"]
+            translation = subtitle["translation"]
+            output_string += f"{index}\n{translation}\n"
+        
         if self.model == "gpt-3.5-turbo":
             used_tokens = response['usage']['total_tokens']
             used_dollars = used_tokens / 1000 * 0.002
@@ -230,7 +374,7 @@ class Translator:
             used_dollars = (prompt_tokens / 1000 * 0.03) + (completion_tokens / 1000 * 0.06)
             print(f"prompt tokens: {prompt_tokens}, completion tokens: {completion_tokens}, Used dollars: {used_dollars}")
 
-        return translated_subtitles, used_dollars
+        return output_string, used_dollars
         
     # Translate subtitles check_response wrapper
     def translate_subtitles(self, subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle):
@@ -288,7 +432,7 @@ class Translator:
             
             # choose the last 2 lines of the previous subtitle and the first line of the next subtitle
             prev_subtitle = extract_line(prev_subtitle, 2)
-            next_subtitle = extract_line(next_subtitle, 1, is_next=True)
+            next_subtitle = extract_line(next_subtitle, 2, is_next=True)
 
             tt, used_dollars, retry_count, wasted_dollars = self.translate_subtitles(t, prev_subtitle, next_subtitle, prev_translated_subtitle)
             prev_translated_subtitle = tt
