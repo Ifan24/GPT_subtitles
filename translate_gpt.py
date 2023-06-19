@@ -10,7 +10,12 @@ from dotenv import load_dotenv
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-
+import tiktoken
+encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
+def count_token(str):
+    num_tokens = len(encoding.encode(str))
+    return num_tokens
+    
 class Subtitle:
     def __init__(self, file_path):
         self.file_path = file_path
@@ -107,7 +112,7 @@ def check_response(input_subtitles, translated_subtitles):
         
 
 class Translator:
-    def __init__(self, model='gpt-3.5-turbo', batch_size=3, target_language='zh', titles='Video Title not found', video_info=None):
+    def __init__(self, model='gpt-3.5-turbo', batch_size=12, target_language='zh', titles='Video Title not found', video_info=None):
         self.model = model
         self.batch_size = batch_size
         self.target_language = target_language
@@ -119,41 +124,34 @@ class Translator:
         
 
     def send_to_openai(self, subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, subtitles_length, warning_message=None, prev_response=None):
-        prompt = ""
-        if warning_message:
-            prompt = f"In a previous request sent to OpenAI, the response is problematic. Please ensure that each translated line corresponds to the same numbered line in the English subtitles, without merging lines or altering the original sentence structure, even if it's unfinished. please do not create the subtitles that are not matching the corresponding line and (!!important) make sure that your reply only contain the {subtitles_length} lines, the translated subtitles have the same number of lines ({subtitles_length}) as the source subtitles. Learn from your mistake. Here is the warning message generated based on your previous response:\n---{warning_message}---\n\n"
-            # prompt += f"Previous Response:\n---{prev_response}---\n\n"
 
 
-        system_content = '''You are a program responsible for translating subtitles. 
-
-- Your task is to translate the current batch of subtitles into {self.target_language} for the video titled '{self.titles}'. 
-
+        system_content = f"""You are a program responsible for translating subtitles. Your task is to translate the current batch of subtitles into {self.target_language} for the video titled '{self.titles}' and follow the guidelines below.
+Guidelines:
+- Keep in mind that each index should correspond exactly with the original text, and your translation should be faithful to the context of each sentence.
 - Translate with informal slang if necessary, ensuring that the translation is accurate and reflects the context and terminology. Please do not output any text other than the translation. 
-
 - You will also receive some additional information for your reference only, such as the previous batch of subtitles, the translation of the previous batch, the next batch of subtitle, and maybe error messages. 
-
 - Please ensure that each line in the current batch has a corresponding translated line. 
-
 - If the last sentence in the current batch is incomplete, you may ignore the last sentence. If the first sentence in the current batch is incomplete, you may combine the last sentence in the last batch to make the sentence complete. 
-
 - Please only output the translation of the current batch of subtitles (current_batch_subtitles_translation).
+- Do not put the translation of the next whole sentence in the current sentence.
+- Each index in the current batch of subtitles must correspond to the exact original text and translation. Do not combine sentences from different indices.
+- Additional information for the video: {self.video_info}
+- Please ensure that the translation and the original text are matched correctly.
+
+- Target language: {self.target_language}
 
 - Please output proper JSON with this format:
-{
+{{
     "current_batch_subtitles_translation": [
-        {
+        {{
             "index": <int>,
             "original_text": <str>,
             "translation": <str>
-        }
+        }}
     ]
-}
+}}"""
 
-- Additional information for the video: {self.video_info}
-
-- Target language: {self.target_language}
-'''
         
         example_user_input1 = '''{
     "previous_batch_subtitles": [
@@ -186,13 +184,8 @@ class Translator:
         {
             "index": 28,
             "original_text": "this livestream was dungeon elite packs and XP and how"
-        },
-        {
-            "index": 29,
-            "original_text": "to balance that and make it standard across the board."
         }
-    ],
-    "Additional_information": "请准确翻译暗黑破环神4的游戏术语"
+    ]
 }'''
         
         example_assistant_output1 = '''{
@@ -206,19 +199,47 @@ class Translator:
         {
             "index": 26,
             "original_text": "going to be patched so that players can also be able to see what's going on in the",
-            "translation": "这将会被修补，以便玩家能够看清屏幕上发生的情况，"
+            "translation": "这将会被修补，以便玩家能够看清地面上发生的情况，"
             
         },
         {
             "index": 27,
             "original_text": "ground and not stand in harmful AoEs.",
-            "translation": "不会站在有害的AoEs（范围伤害技能）中。"
+            "translation": "这样不会站在有害的AoEs（范围伤害技能）中。"
             
         }
     ]
 }'''
         
         example_user_input2 = '''{
+    "current_batch_subtitles": [
+        {
+            "index": 1,
+            "original_text": "So Diablo 2 had a secret cow level which you could only unlock after you found some"
+        },
+        {
+            "index": 2,
+            "original_text": "items in the world,"
+        }
+    ]
+}'''
+        
+        example_assistant_output2 = '''{
+    "current_batch_subtitles_translation": [
+        {
+            "index": 1,
+            "original_text": "So Diablo 2 had a secret cow level which you could only unlock after you found some",
+            "translation": "暗黑破坏神2里有一个秘密奶牛关卡，你只有在找到一些物品之后才能解锁，"
+        },
+        {
+            "index": 2,
+            "original_text": "items in the world,",
+            "translation": "这些物品需要在世界中找到，"
+        }
+    ]
+}'''
+
+        example_user_input3 = '''{
     "current_batch_subtitles": [
         {
             "index": 102,
@@ -231,7 +252,7 @@ class Translator:
     ]
 }'''
         
-        example_assistant_output2 = """{
+        example_assistant_output3 = """{
     "current_batch_subtitles_translation": [
         {
             "index": 102,
@@ -245,6 +266,7 @@ class Translator:
         }
     ]
 }"""
+        
         
         def process_line(line):
             subtitles = []
@@ -268,12 +290,6 @@ class Translator:
                 # Move to next subtitle
                 i += 2
                 
-            # subtitles = []
-            # for i in range(0, len(lines), 2):
-            #     print(f"line: {lines[i]}")
-            #     index = int(lines[i])
-            #     text = lines[i+1]
-            #     subtitles.append({"index": index, "original_text": text})
             return subtitles
         
         user_input = {}
@@ -309,14 +325,20 @@ class Translator:
             user_input["next_batch_subtitles"] = process_line(next_subtitle)
             
         if warning_message:
-            user_input["Warning_message"] = f"In a previous request sent to OpenAI, the response is problematic. Please double-check your answer."
+            user_input["Warning_message"] = f"In a previous request sent to OpenAI, the response is problematic. Please double-check your answer. Warning message: {warning_message}"
             
         messages = [
             {"role": "system", "content": system_content},
+            
             {"role": "user", "content": example_user_input1},
             {"role": "assistant", "content": example_assistant_output1},
+            
             {"role": "user", "content": example_user_input2},
             {"role": "assistant", "content": example_assistant_output2},
+            
+            {"role": "user", "content": example_user_input3},
+            {"role": "assistant", "content": example_assistant_output3},
+            
             {"role": "user", "content": ujson.dumps(user_input)},
         ]
         
@@ -324,57 +346,97 @@ class Translator:
         print(messages)
         print("========End of Messages========\n")
         
-        inference_not_done = True
-        while inference_not_done:
+        max_retries = 3
+        retry_count = 0
+        while retry_count < max_retries:
             try:
+                answer = ''
+                translated_subtitles = ''
+                delay_time = 0.01
+                start_time = time.time()
                 response = openai.ChatCompletion.create(
                     model=self.model,
                     messages=messages,
-                    temperature=0.3,
-                    top_p=0.5
+                    temperature=0.1,
+                    top_p=0.5,
+                    stream=True,
                 )
-                inference_not_done = False
-            except Exception as e:
-                print(f"Waiting 60 seconds")
-                print(f"Error was: {e}")
-                time.sleep(60)
+                for event in response: 
+                    # STREAM THE ANSWER
+                    print(answer, end='', flush=True) # Print the response    
+                    # RETRIEVE THE TEXT FROM THE RESPONSE
+                    event_time = time.time() - start_time  # CALCULATE TIME DELAY BY THE EVENT
+                    event_text = event['choices'][0]['delta'] # EVENT DELTA RESPONSE
+                    answer = event_text.get('content', '') # RETRIEVE CONTENT
+                    translated_subtitles += answer
+                    time.sleep(delay_time)
+                
+                print("========Response========\n")
+                print(translated_subtitles)
+                
+                # Parse JSON string into a Python dictionary
+                json_string_with_double_quotes = re.sub(r"(\s*[\{\}:,]\s*)'([^']*)'", r'\1"\2"', translated_subtitles)
+                pattern = re.compile(r',\s*}')
+                cleaned_json_string = re.sub(pattern, '}', json_string_with_double_quotes)
 
-        translated_subtitles = response.choices[0].get("message").get("content").encode("utf8").decode()
-        print("========Response========\n")
-        # translated_subtitles = translated_subtitles.replace('```', '').replace('---', '')
-        print(translated_subtitles)
-    
-        # Parse JSON string into a Python dictionary
-        # replace single quotes used as delimiters with double quotes
-        json_string_with_double_quotes = re.sub(r"(\s*[\{\}:,]\s*)'([^']*)'", r'\1"\2"', translated_subtitles)
-        # remove trailing commas
-        pattern = re.compile(r',\s*}')
-        cleaned_json_string = re.sub(pattern, '}', json_string_with_double_quotes)
-
-        try:
-            # use ujson for faster parsing and unicode support
-            data = ujson.loads(cleaned_json_string)
-        except ujson.JSONDecodeError as e:
-            print(f"An error occurred while parsing JSON: {e}")
-    
-        # Extract translations and construct the output string
-        output_string = ""
-        for subtitle in data["current_batch_subtitles_translation"]:
-            index = subtitle["index"]
-            translation = subtitle["translation"]
-            output_string += f"{index}\n{translation}\n"
+                data = ujson.loads(cleaned_json_string)
+                
+                # Extract translations and construct the output string
+                output_string = ""
+                for subtitle in data["current_batch_subtitles_translation"]:
+                    index = subtitle["index"]
+                    translation = subtitle["translation"]
+                    output_string += f"{index}\n{translation}\n\n"
+                
+                prompt_tokens = count_token(str(messages))
+                completion_tokens = count_token(translated_subtitles)
+                if self.model == "gpt-3.5-turbo":
+                    # used_tokens = response['usage']['total_tokens']
+                    used_dollars = (prompt_tokens / 1000 * 0.0015) + (completion_tokens / 1000 * 0.002)
+                    print(f"prompt tokens: {prompt_tokens}, completion tokens: {completion_tokens}, Used dollars: {used_dollars}")
+                    
+                elif self.model == "gpt-3.5-turbo-16k-0613":
+                    used_dollars = (prompt_tokens / 1000 * 0.003) + (completion_tokens / 1000 * 0.004)
+                    print(f"prompt tokens: {prompt_tokens}, completion tokens: {completion_tokens}, Used dollars: {used_dollars}")
+                    
+                elif self.model == "gpt-4":
+                    # prompt_tokens = response['usage']['prompt_tokens']
+                    # completion_tokens = response['usage']['completion_tokens']
+                    used_dollars = (prompt_tokens / 1000 * 0.03) + (completion_tokens / 1000 * 0.06)
+                    print(f"prompt tokens: {prompt_tokens}, completion tokens: {completion_tokens}, Used dollars: {used_dollars}")
         
-        if self.model == "gpt-3.5-turbo":
-            used_tokens = response['usage']['total_tokens']
-            used_dollars = used_tokens / 1000 * 0.002
-            print(f"Used tokens: {used_tokens}, Used dollars: {used_dollars}")
-        elif self.model == "gpt-4":
-            prompt_tokens = response['usage']['prompt_tokens']
-            completion_tokens = response['usage']['completion_tokens']
-            used_dollars = (prompt_tokens / 1000 * 0.03) + (completion_tokens / 1000 * 0.06)
-            print(f"prompt tokens: {prompt_tokens}, completion tokens: {completion_tokens}, Used dollars: {used_dollars}")
+                return output_string, used_dollars
 
-        return output_string, used_dollars
+            except ujson.JSONDecodeError as e:
+                retry_count += 1
+                print(f"An error occurred while parsing JSON: {e}. Retrying {retry_count} of {max_retries}.")
+                warning_message = "Your response is not in a valid JSON format. Please double-check your answer."
+                time.sleep(10) 
+            
+            except openai.error.APIError as e:
+                # Handle API error here, e.g. retry or log
+                print(f"Waiting 30 seconds")
+                print(f"OpenAI API returned an API Error: {e}")
+                time.sleep(30)
+                
+            except openai.error.APIConnectionError as e:
+                # Handle connection error here
+                print(f"Waiting 30 seconds, please double-check your internet connection")
+                print(f"Failed to connect to OpenAI API: {e}")
+                time.sleep(30)
+                
+            except openai.error.RateLimitError as e:
+                # Handle rate limit error (we recommend using exponential backoff)
+                print(f"Waiting 60 seconds")
+                print(f"OpenAI API request exceeded rate limit: {e}")
+                time.sleep(60)
+  
+            except Exception as e:
+                print(f"An unexpected error occurred: {e}")
+                return None, None 
+
+        print("Max retries reached. Unable to get valid JSON response.")
+        return None, None
         
     # Translate subtitles check_response wrapper
     def translate_subtitles(self, subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle):
@@ -387,7 +449,9 @@ class Translator:
 
         cumulative_warning = ""
         wasted_dollars = 0
-        while (blocks != subtitles_length or additional_content or problematic_blocks) and count < 5:
+        while (blocks != subtitles_length or additional_content or problematic_blocks) and count < 3:
+            print("========Retrying========\n")
+            print(translated_subtitles)
             warning_message = f"Warning: Mismatch in the number of lines ({blocks} != {subtitles_length}), or additional content found ({additional_content}), or problematic blocks ({problematic_blocks}), retry count {count}..."
             print(warning_message)
             cumulative_warning = cumulative_warning + warning_message + "\n"
@@ -452,8 +516,8 @@ class Translator:
             print("========End of Batch summary=======\n")
             translated.append(tt_merged)
 
-        translated = '\n\n'.join(translated)
-        raw_translated = '\n\n'.join(raw_translated)
+        translated = ''.join(translated)
+        raw_translated = ''.join(raw_translated)
 
         print(translated)
         print("========Translate summary=======\n")
@@ -463,7 +527,7 @@ class Translator:
         print("========End of Translate summary=======\n")
         return translated, raw_translated
 
-def translate_with_gpt(input_file, target_language, batch_size=3, model='gpt-3.5-turbo', video_info=None):
+def translate_with_gpt(input_file, target_language, batch_size=12, model='gpt-3.5-turbo', video_info=None):
     # Extract the file name without the extension
     file_name = os.path.splitext(os.path.basename(input_file))[0]
     
@@ -481,10 +545,10 @@ def main():
     parser = argparse.ArgumentParser(description='Translate subtitles using GPT')
     parser.add_argument('-i', '--input_file', help='The path to the input subtitle file.', type=str, required=True)
     # parser.add_argument('-o', '--output_file', help='The path to the output subtitle file.', type=str, required=True)
-    parser.add_argument('-b', '--batch_size', help='The number of subtitles to process in a batch.', type=int, default=3)
+    parser.add_argument('-b', '--batch_size', help='The number of subtitles to process in a batch.', type=int, default=12)
     parser.add_argument('-l', '--language', help='The target language for translation.', default='zh')
     parser.add_argument('-v', "--video_info", type=str, default="", help="Additional information about the video.")
-    parser.add_argument('-m', '--model', default='gpt-3.5-turbo', help='Model for OpenAI API', type=str, choices=['gpt-3.5-turbo', 'gpt-4'])
+    parser.add_argument('-m', '--model', default='gpt-3.5-turbo', help='Model for OpenAI API', type=str, choices=['gpt-3.5-turbo', 'gpt-4', 'gpt-3.5-turbo-16k', 'gpt-3.5-turbo-16k-0613'])
     
     args = parser.parse_args()
 

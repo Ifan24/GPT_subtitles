@@ -153,8 +153,11 @@ class SubtitleProcessor:
         self.video_language = info.language
 
         words_list = []
+        sentence_list = []
         for segment in segments:
             print("[%.2fs -> %.2fs] %s" % (segment.start, segment.end, segment.text))
+            sentence = {'text': segment.text, 'start': segment.start, 'end': segment.end}
+            sentence_list.append(sentence)
             for word in segment.words:
                 # print("[%.2fs -> %.2fs] %s" % (word.start, word.end, word.word))
                 dict_word = {'word': word.word, 'start': word.start, 'end': word.end}
@@ -175,8 +178,16 @@ class SubtitleProcessor:
         with open(srt_file, 'w') as f:
             f.write(srt_sub)
 
+        # Original whisper segmentation
+        srt_sub = self.segments_to_srt(sentence_list)
+        original_srt_file = os.path.join(os.path.dirname(self.video_path), f'{Path(self.video_path).stem}_original.srt')
+        with open(original_srt_file, 'w') as f:
+            f.write(srt_sub)
+            
         print(f"subtitle is saved at {srt_file}")
+        print(f"original subtitle is saved at {original_srt_file}")
         result = {'segments' : merged_sentence_segments, 'language': info.language}
+        
         return result, srt_file
     
     def save_translated_srt(self, segs, translated_text):
