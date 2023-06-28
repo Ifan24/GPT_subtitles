@@ -6,6 +6,7 @@ import re
 import argparse
 import time
 from dotenv import load_dotenv
+import logging
 
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -15,7 +16,7 @@ encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
 def count_token(str):
     num_tokens = len(encoding.encode(str))
     return num_tokens
-    
+ 
 class Subtitle:
     def __init__(self, file_path):
         self.file_path = file_path
@@ -112,7 +113,7 @@ def check_response(input_subtitles, translated_subtitles):
         
 
 class Translator:
-    def __init__(self, model='gpt-3.5-turbo', batch_size=12, target_language='zh', titles='Video Title not found', video_info=None):
+    def __init__(self, model='gpt-3.5-turbo', batch_size=40, target_language='zh', titles='Video Title not found', video_info=None, input_path=None):
         self.model = model
         self.batch_size = batch_size
         self.target_language = target_language
@@ -121,6 +122,32 @@ class Translator:
         
         if target_language == "zh":
             self.target_language = "Simplified Chinese"
+        
+        # Setting up the logger
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG)
+        handler = logging.FileHandler(os.path.join(os.path.dirname(input_path), 'translator.log'))
+        handler.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+        
+        # Setup logger for OpenAI response
+        self.openai_logger = logging.getLogger('OpenAI_Response')
+        self.openai_logger.setLevel(logging.DEBUG)
+
+        # Create another file handler for OpenAI response
+        openai_file_handler = logging.FileHandler(os.path.join(os.path.dirname(input_path), 'response.log'))
+        openai_file_handler.setLevel(logging.DEBUG)
+
+        # Create another formatter for OpenAI response
+        openai_formatter = logging.Formatter('%(message)s')
+
+        # Set formatter for OpenAI response logger
+        openai_file_handler.setFormatter(openai_formatter)
+
+        # Add handler to OpenAI response logger
+        self.openai_logger.addHandler(openai_file_handler)
         
 
     def send_to_openai(self, subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, subtitles_length, warning_message=None, prev_response=None):
@@ -136,8 +163,11 @@ Guidelines:
 - Please only output the translation of the current batch of subtitles (current_batch_subtitles_translation).
 - Do not put the translation of the next whole sentence in the current sentence.
 - Each index in the current batch of subtitles must correspond to the exact original text and translation. Do not combine sentences from different indices.
+- Ensure that the number of lines in the current batch of subtitles is the same as the number of lines in the translation.
+- You may translate with conversational language if the original text is informal.
 - Additional information for the video: {self.video_info}
 - Please ensure that the translation and the original text are matched correctly.
+- You may receive original text in other languages, but please only output {self.target_language} translation.
 
 - Target language: {self.target_language}
 
@@ -298,10 +328,10 @@ Guidelines:
             previous_subtitles = process_line(prev_subtitle)
             if prev_translated_subtitle:
                 translated_subtitles = process_line(prev_translated_subtitle)
-                # print(previous_subtitles)
-                # print(f"length of previous_subtitles: {len(previous_subtitles)}")
-                # print(translated_subtitles)
-                # print(f"length of translated_subtitles: {len(translated_subtitles)}")
+                # self.logger.info(previous_subtitles)
+                # self.logger.info(f"length of previous_subtitles: {len(previous_subtitles)}")
+                # self.logger.info(translated_subtitles)
+                # self.logger.info(f"length of translated_subtitles: {len(translated_subtitles)}")
                 
                 # Create a dictionary for faster lookup
                 index_to_translation = {item["index"]: item["original_text"] for item in translated_subtitles}
@@ -313,8 +343,8 @@ Guidelines:
                         # Add the translation to previous_subtitles
                         item["translation"] = index_to_translation[item["index"]]
                     else:
-                        # Print error if index doesn't exist in translated_subtitles
-                        print(f"Error: index {item['index']} not found in translated subtitles")
+                        # self.logger.info error if index doesn't exist in translated_subtitles
+                        self.logger.info(f"Error: index {item['index']} not found in translated subtitles")
                                 
                     user_input["previous_batch_subtitles"] = previous_subtitles
         
@@ -330,21 +360,21 @@ Guidelines:
         messages = [
             {"role": "system", "content": system_content},
             
-            {"role": "user", "content": example_user_input1},
-            {"role": "assistant", "content": example_assistant_output1},
+            # {"role": "user", "content": example_user_input1},
+            # {"role": "assistant", "content": example_assistant_output1},
             
-            {"role": "user", "content": example_user_input2},
-            {"role": "assistant", "content": example_assistant_output2},
+            # {"role": "user", "content": example_user_input2},
+            # {"role": "assistant", "content": example_assistant_output2},
             
-            {"role": "user", "content": example_user_input3},
-            {"role": "assistant", "content": example_assistant_output3},
+            # {"role": "user", "content": example_user_input3},
+            # {"role": "assistant", "content": example_assistant_output3},
             
             {"role": "user", "content": ujson.dumps(user_input)},
         ]
         
-        print("========Messages========\n")
-        print(messages)
-        print("========End of Messages========\n")
+        self.logger.info("========Messages========\n")
+        self.logger.info(messages)
+        self.logger.info("========End of Messages========\n")
         
         max_retries = 3
         retry_count = 0
@@ -361,18 +391,24 @@ Guidelines:
                     top_p=0.5,
                     stream=True,
                 )
+                terminator = self.openai_logger.handlers[0].terminator
+                self.openai_logger.handlers[0].terminator = ''
                 for event in response: 
                     # STREAM THE ANSWER
-                    print(answer, end='', flush=True) # Print the response    
+                    # print(answer, end='', flush=True) 
+                    self.openai_logger.info(answer) 
+                    self.openai_logger.handlers[0].flush()
                     # RETRIEVE THE TEXT FROM THE RESPONSE
-                    event_time = time.time() - start_time  # CALCULATE TIME DELAY BY THE EVENT
-                    event_text = event['choices'][0]['delta'] # EVENT DELTA RESPONSE
-                    answer = event_text.get('content', '') # RETRIEVE CONTENT
+                    event_time = time.time() - start_time  
+                    event_text = event['choices'][0]['delta']
+                    answer = event_text.get('content', '')
                     translated_subtitles += answer
                     time.sleep(delay_time)
                 
-                print("========Response========\n")
-                print(translated_subtitles)
+                self.openai_logger.handlers[0].terminator = terminator
+                self.openai_logger.info("===========================") 
+                self.logger.info("========Response========\n")
+                self.logger.info(translated_subtitles)
                 
                 # Parse JSON string into a Python dictionary
                 json_string_with_double_quotes = re.sub(r"(\s*[\{\}:,]\s*)'([^']*)'", r'\1"\2"', translated_subtitles)
@@ -393,49 +429,49 @@ Guidelines:
                 if self.model == "gpt-3.5-turbo":
                     # used_tokens = response['usage']['total_tokens']
                     used_dollars = (prompt_tokens / 1000 * 0.0015) + (completion_tokens / 1000 * 0.002)
-                    print(f"prompt tokens: {prompt_tokens}, completion tokens: {completion_tokens}, Used dollars: {used_dollars}")
+                    self.logger.info(f"prompt tokens: {prompt_tokens}, completion tokens: {completion_tokens}, Used dollars: {used_dollars}")
                     
                 elif self.model == "gpt-3.5-turbo-16k-0613":
                     used_dollars = (prompt_tokens / 1000 * 0.003) + (completion_tokens / 1000 * 0.004)
-                    print(f"prompt tokens: {prompt_tokens}, completion tokens: {completion_tokens}, Used dollars: {used_dollars}")
+                    self.logger.info(f"prompt tokens: {prompt_tokens}, completion tokens: {completion_tokens}, Used dollars: {used_dollars}")
                     
                 elif self.model == "gpt-4":
                     # prompt_tokens = response['usage']['prompt_tokens']
                     # completion_tokens = response['usage']['completion_tokens']
                     used_dollars = (prompt_tokens / 1000 * 0.03) + (completion_tokens / 1000 * 0.06)
-                    print(f"prompt tokens: {prompt_tokens}, completion tokens: {completion_tokens}, Used dollars: {used_dollars}")
+                    self.logger.info(f"prompt tokens: {prompt_tokens}, completion tokens: {completion_tokens}, Used dollars: {used_dollars}")
         
                 return output_string, used_dollars
 
             except ujson.JSONDecodeError as e:
                 retry_count += 1
-                print(f"An error occurred while parsing JSON: {e}. Retrying {retry_count} of {max_retries}.")
+                self.logger.error(f"An error occurred while parsing JSON: {e}. Retrying {retry_count} of {max_retries}.")
                 warning_message = "Your response is not in a valid JSON format. Please double-check your answer."
                 time.sleep(10) 
             
             except openai.error.APIError as e:
                 # Handle API error here, e.g. retry or log
-                print(f"Waiting 30 seconds")
-                print(f"OpenAI API returned an API Error: {e}")
+                self.logger.error(f"Waiting 30 seconds")
+                self.logger.error(f"OpenAI API returned an API Error: {e}")
                 time.sleep(30)
                 
             except openai.error.APIConnectionError as e:
                 # Handle connection error here
-                print(f"Waiting 30 seconds, please double-check your internet connection")
-                print(f"Failed to connect to OpenAI API: {e}")
+                self.logger.error(f"Waiting 30 seconds, please double-check your internet connection")
+                self.logger.error(f"Failed to connect to OpenAI API: {e}")
                 time.sleep(30)
                 
             except openai.error.RateLimitError as e:
                 # Handle rate limit error (we recommend using exponential backoff)
-                print(f"Waiting 60 seconds")
-                print(f"OpenAI API request exceeded rate limit: {e}")
+                self.logger.error(f"Waiting 60 seconds")
+                self.logger.error(f"OpenAI API request exceeded rate limit: {e}")
                 time.sleep(60)
   
             except Exception as e:
-                print(f"An unexpected error occurred: {e}")
+                self.logger.error(f"An unexpected error occurred: {e}")
                 return None, None 
 
-        print("Max retries reached. Unable to get valid JSON response.")
+        self.logger.error("Max retries reached. Unable to get valid JSON response.")
         return None, None
         
     # Translate subtitles check_response wrapper
@@ -450,10 +486,10 @@ Guidelines:
         cumulative_warning = ""
         wasted_dollars = 0
         while (blocks != subtitles_length or additional_content or problematic_blocks) and count < 3:
-            print("========Retrying========\n")
-            print(translated_subtitles)
+            self.logger.info("========Retrying========\n")
+            self.logger.info(translated_subtitles)
             warning_message = f"Warning: Mismatch in the number of lines ({blocks} != {subtitles_length}), or additional content found ({additional_content}), or problematic blocks ({problematic_blocks}), retry count {count}..."
-            print(warning_message)
+            self.logger.info(warning_message)
             cumulative_warning = cumulative_warning + warning_message + "\n"
             translated_subtitles, used_dollars = self.send_to_openai(subtitles, prev_subtitle, next_subtitle, prev_translated_subtitle, subtitles_length, warning_message=cumulative_warning, prev_response=translated_subtitles)
             count += 1
@@ -505,34 +541,34 @@ Guidelines:
             total_dollars += used_dollars
             number_of_retry += retry_count
             total_wasted_dollars += wasted_dollars
-            print("========Batch summary=======\n")
-            print(f"total dollars used: {total_dollars:.3f}\n")
-            print(f"total number of retry: {number_of_retry}\n")
-            print(f"total wasted dollars: {total_wasted_dollars:.3f}\n")
-            print("==============\n")
-            print(t)
-            print("==============\n")
-            print(tt_merged)
-            print("========End of Batch summary=======\n")
+            self.logger.info("========Batch summary=======\n")
+            self.logger.info(f"total dollars used: {total_dollars:.3f}\n")
+            self.logger.info(f"total number of retry: {number_of_retry}\n")
+            self.logger.info(f"total wasted dollars: {total_wasted_dollars:.3f}\n")
+            self.logger.info("==============\n")
+            self.logger.info(t)
+            self.logger.info("==============\n")
+            self.logger.info(tt_merged)
+            self.logger.info("========End of Batch summary=======\n")
             translated.append(tt_merged)
 
         translated = ''.join(translated)
         raw_translated = ''.join(raw_translated)
 
-        print(translated)
-        print("========Translate summary=======\n")
-        print(f"total dollars used: {total_dollars:.3f}\n")
-        print(f"total number of retry: {number_of_retry}\n")
-        print(f"total wasted dollars: {total_wasted_dollars:.3f}\n")
-        print("========End of Translate summary=======\n")
+        self.logger.info(translated)
+        self.logger.info("========Translate summary=======\n")
+        self.logger.info(f"total dollars used: {total_dollars:.3f}\n")
+        self.logger.info(f"total number of retry: {number_of_retry}\n")
+        self.logger.info(f"total wasted dollars: {total_wasted_dollars:.3f}\n")
+        self.logger.info("========End of Translate summary=======\n")
         return translated, raw_translated
 
-def translate_with_gpt(input_file, target_language, batch_size=12, model='gpt-3.5-turbo', video_info=None):
+def translate_with_gpt(input_file, target_language, batch_size=40, model='gpt-3.5-turbo', video_info=None):
     # Extract the file name without the extension
     file_name = os.path.splitext(os.path.basename(input_file))[0]
     
     subtitle = Subtitle(input_file)
-    translator = Translator(model=model, batch_size=batch_size, target_language=target_language, titles=file_name, video_info=video_info)
+    translator = Translator(model=model, batch_size=batch_size, target_language=target_language, titles=file_name, video_info=video_info, input_path=input_file)
 
     subtitle_batches, timestamps_batches = subtitle.get_processed_batches_and_timestamps(batch_size)
     translated_subtitles, raw_translated_subtitles = translator.batch_translate(subtitle_batches, timestamps_batches)

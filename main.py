@@ -248,7 +248,9 @@ class SubtitleProcessor:
     def process(self):
         # Transcribe the video
         english_transcript, srt_file = self.transcribe_audio()
-
+        if self.translation_method == 'no_translate':
+            return
+        
         if self.translation_method == 'gpt':
             from translate_gpt import translate_with_gpt
             # Translate the transcript to another language using gpt-3.5 or gpt-4 Translate
@@ -275,7 +277,7 @@ if __name__ == "__main__":
     parser.add_argument('--local_video', help='The path to the local video file.', type=str)
     parser.add_argument('--target_language', help='The target language for translation.', default='zh')
     parser.add_argument("--model", help="""Choose one of the Whisper model""", default='small', type=str, choices=['tiny', 'base', 'small', 'medium', 'large'])
-    parser.add_argument('--translation_method', help='The method to use for translation. Options: "m2m100" or "google" or "whisper" or "gpt"', default='m2m100', choices=['m2m100', 'google', 'whisper', 'gpt'])
+    parser.add_argument('--translation_method', help='The method to use for translation. Options: "m2m100" or "google" or "whisper" or "gpt"', default='m2m100', choices=['m2m100', 'google', 'whisper', 'gpt', 'no_translate'])
 
     args = parser.parse_args()
 
