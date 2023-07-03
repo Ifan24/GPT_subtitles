@@ -29,35 +29,6 @@ You can provide either a YouTube URL or a local video file for processing. The s
 python main.py --youtube_url [YOUTUBE_URL] --target_language [TARGET_LANGUAGE] --model [WHISPER_MODEL] --translation_method [TRANSLATION_METHOD]
 
 ```
-
-## Subtitle Translation using GPT-3.5 （translate_gpt.py）
-
-This script translates subtitles using OpenAI's GPT-3.5 language model. It requires an OpenAI API key to function. In some cases, GPT-based translation might produce better results compared to Google Translate, especially when dealing with context-specific translations or idiomatic expressions. This script aims to provide an alternative method for translating subtitles when traditional translation services like Google Translate do not produce satisfactory results.
-### Setup
-1. Sign up for an API key from OpenAI at https://platform.openai.com/account/api-keys
-2. Once you have the API key, create a file named .env in the same directory as the script.
-3. Add the following line to the .env file:
-```
-OPENAI_API_KEY=your_api_key_here
-```
-Replace your_api_key_here with the API key you obtained from OpenAI.
-
-### Usage
-
-```
-python translate_gpt.py --input_file INPUT_FILE_PATH [--batch_size BATCH_SIZE] [--target_language TARGET_LANGUAGE]
-
-```
-
-### Arguments
-
-- --input_file: The path to the input subtitle file. (Required)
-- --batch_size: The number of subtitles to process in a batch. (Optional, default: 3)
-- --target_language: The target language for translation. (Optional, default: 'zh' for Simplified Chinese)
-
-
-[showcase of GPT-3.5 translation](https://www.bilibili.com/video/BV1xv4y1E7ZD/)
-
 # Arguments
 
 ---youtube_url: The URL of the YouTube video.
@@ -95,6 +66,36 @@ The script will generate the following output files in the same directory as the
 - An SRT file containing the combined dual subtitles.
 - A video file with embedded dual subtitles (not yet work).
 
+
+# Subtitle Translation using GPT-3.5 （translate_gpt.py）
+
+This script translates subtitles using OpenAI's GPT-3.5 language model. It requires an OpenAI API key to function. In some cases, GPT-based translation might produce better results compared to Google Translate, especially when dealing with context-specific translations or idiomatic expressions. This script aims to provide an alternative method for translating subtitles when traditional translation services like Google Translate do not produce satisfactory results.
+### Setup
+1. Sign up for an API key from OpenAI at https://platform.openai.com/account/api-keys
+2. Once you have the API key, create a file named .env in the same directory as the script.
+3. Add the following line to the .env file:
+```
+OPENAI_API_KEY=your_api_key_here
+```
+Replace your_api_key_here with the API key you obtained from OpenAI.
+
+### Usage
+
+```
+python translate_gpt.py --input_file INPUT_FILE_PATH [--batch_size BATCH_SIZE] [--target_language TARGET_LANGUAGE]
+
+```
+
+### Arguments
+
+- --input_file: The path to the input subtitle file. (Required)
+- --batch_size: The number of subtitles to process in a batch. (Optional, default: 3)
+- --target_language: The target language for translation. (Optional, default: 'zh' for Simplified Chinese)
+
+
+[showcase of GPT-3.5 translation](https://www.bilibili.com/video/BV1xv4y1E7ZD/)
+
+
 # Contributing
 Contributions are more than welcome!
 
@@ -102,7 +103,8 @@ Contributions are more than welcome!
 # TODO
 - [ ] Fix the bug that prevents embedding dual subtitles into the video.
 - [ ] Implement a GUI to make the tool more user-friendly.
-- [ ] Add more robust error handling for GPT-3.5 responses
+- [ ] Let GPT summarize a list of word-to-word translation in its response and use it to improve translation consistency, and let human post-process the transcript by modify the dictionary.
+- [ ] Use GPT4 to generate Few-shot examples for other language pairs, and make a JSON file for the examples.
 - [x] Explore the possibility of using offline small GPT models. (I tried some models on [webGUI](https://github.com/oobabooga/text-generation-webui) with the prompt, but they mostly output random text or translation that are worst than google translate)
 - [ ] [Fine-tune Whisper](https://github.com/jumon/whisper-finetuning) on (English audio, Chinese subtitle) dataset to improve x-to-Chinese translation accuracy
 

@@ -73,7 +73,7 @@ def resize_image(input_path, output_path, new_dimensions):
                 
 def sanitize_filename(filename):
     # This will replace reserved characters with an underscore
-    return re.sub(r'[\/:*?"<>|]', '_', filename)
+    return re.sub(r'[\/:*?"<>|!]', '_', filename)
 
 class YouTubeDownloader:
     def __init__(self, url, target_language='zh-Hans'):
