@@ -247,29 +247,29 @@ class SubtitleProcessor:
         
     def process(self):
         # Transcribe the video
-        english_transcript, srt_file = self.transcribe_audio()
+        transcript, srt_file = self.transcribe_audio()
         if self.translation_method == 'no_translate':
             return
         
         if self.translation_method == 'gpt':
             from translate_gpt import translate_with_gpt
             # Translate the transcript to another language using gpt-3.5 or gpt-4 Translate
-            translate_with_gpt(input_file=srt_file, target_language=self.target_language)
+            translate_with_gpt(input_file=srt_file, target_language=self.target_language, source_language=self.video_language)
 
         elif self.translation_method == 'whisper':
             self.translate_with_whisper(self.target_language)
             
         else:
             # Translate the transcript to another language
-            translated_transcript = self.translation_service.translate(english_transcript, src_lang=self.video_language, tr_lang=self.target_language)
+            translated_transcript = self.translation_service.translate(transcript, src_lang=self.video_language, tr_lang=self.target_language)
             print(translated_transcript)
             # Save the translated subtitles to a separate SRT file
-            segs_tr = copy.deepcopy(english_transcript['segments'])
+            segs_tr = copy.deepcopy(transcript['segments'])
             
             self.save_translated_srt(segs_tr, translated_transcript)
     
             # Add dual subtitles to the video
-            self.add_dual_subtitles(english_transcript, translated_transcript)
+            self.add_dual_subtitles(transcript, translated_transcript)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Download YouTube video, transcribe, translate and add dual subtitles.')

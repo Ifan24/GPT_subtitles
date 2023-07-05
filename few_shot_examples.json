@@ -1,0 +1,274 @@
+{
+    "en-to-zh": {
+        "source" : "English",
+        "target" : "Chinese",
+        "examples" : [
+            {
+                "input": {
+                    "previous_batch_subtitles": [
+                        {
+                            "index": 23,
+                            "original_text": "with this issue, though they didn't elaborate on what exactly that would mean.",
+                            "translation": "有关这个问题，尽管他们没有详细说明这究竟意味着什么。"
+                        },
+                        {
+                            "index": 24,
+                            "original_text": "Another change they mentioned was the corpse explosion from necromancer that leaves",
+                            "translation": "他们提到的另一个变化是死灵法师的尸爆"
+                        }
+                    ],
+                    "current_batch_subtitles": [
+                        {
+                            "index": 25,
+                            "original_text": "the shadow dot all over the screen that makes it so people can't see anything that's"
+                        },
+                        {
+                            "index": 26,
+                            "original_text": "going to be patched so that players can also be able to see what's going on in the"
+                        },
+                        {
+                            "index": 27,
+                            "original_text": "ground and not stand in harmful AoEs. Another really hot topic in"
+                        }
+                    ],
+                    "next_batch_subtitles": [
+                        {
+                            "index": 28,
+                            "original_text": "this livestream was dungeon elite packs and XP and how"
+                        }
+                    ]
+                },
+                "output": {
+                    "current_batch_subtitles_translation": [
+                        {
+                            "index": 25,
+                            "original_text": "the shadow dot all over the screen that makes it so people can't see anything that's",
+                            "translation": "尸爆会让屏幕上布满阴影点，使人们无法看清屏幕上的任何东西，"
+                            
+                        },
+                        {
+                            "index": 26,
+                            "original_text": "going to be patched so that players can also be able to see what's going on in the",
+                            "translation": "这将会被修补，以便玩家能够看清地面上发生的情况，"
+                            
+                        },
+                        {
+                            "index": 27,
+                            "original_text": "ground and not stand in harmful AoEs.",
+                            "translation": "这样不会站在有害的AoEs（范围伤害技能）中。"
+                            
+                        }
+                    ],
+                    "translation_mapping": {
+                        "corpse explosion": "尸爆",
+                        "necromancer": "死灵法师",
+                        "patched": "修补",
+                        "shadow dot": "阴影点",
+                        "AoEs": "范围伤害技能"
+                    }
+                }
+            },
+            
+            {
+                "input": {
+                    "current_batch_subtitles": [
+                        {
+                            "index": 1,
+                            "original_text": "So Diablo 2 had a secret cow level which you could only unlock after you found some"
+                        },
+                        {
+                            "index": 2,
+                            "original_text": "items in the world,"
+                        }
+                    ],
+                    "translation_mapping": {
+                        "cow level": "奶牛关卡",
+                        "necromancer": "死灵法师"
+                    }
+                },
+                "output": {
+                    "current_batch_subtitles_translation": [
+                        {
+                            "index": 1,
+                            "original_text": "So Diablo 2 had a secret cow level which you could only unlock after you found some",
+                            "translation": "暗黑破坏神2里有一个秘密奶牛关卡，你只有在找到一些物品之后才能解锁，"
+                        },
+                        {
+                            "index": 2,
+                            "original_text": "items in the world,",
+                            "translation": "这些物品需要在世界中找到，"
+                        }
+                    ],
+                    "translation_mapping": {
+                        "cow level": "奶牛关卡",
+                        "necromancer": "死灵法师",
+                        "Diablo 2": "暗黑破坏神"
+                    }
+                }
+            },
+            
+            {
+                "input": {
+                    "current_batch_subtitles": [
+                        {
+                            "index": 102,
+                            "original_text": "You may find a chest piece for example that has like three different resistances"
+                        },
+                        {
+                            "index": 103,
+                            "original_text": "with like 50% or something like that and you think wow this is a lot of damage reduction"
+                        }
+                    ]
+                },
+                "output": {
+                    "current_batch_subtitles_translation": [
+                        {
+                            "index": 102,
+                            "original_text": "You may find a chest piece for example that has like three different resistances",
+                            "translation": "你可能会看到一个胸甲有3个50%左右的抗性，"
+                        },
+                        {
+                            "index": 103,
+                            "original_text": "with like 50% or something like that and you think wow this is a lot of damage reduction",
+                            "translation": "然后你会觉得哇，这是很大的伤害减免，"
+                        }
+                    ]
+                }
+            }
+        ]
+    },
+
+    "ko-to-zh": {
+        "source" : "Korean",
+        "target" : "Chinese",
+        "examples" : [
+            {
+                "input": {
+                    "previous_batch_subtitles": [
+                        {
+                            "index": 23,
+                            "original_text": "이 문제에 대해 그들은 자세히 설명하지 않았지만,",
+                            "translation": "有关这个问题，尽管他们没有详细说明这究竟意味着什么。"
+                        },
+                        {
+                            "index": 24,
+                            "original_text": "그들이 언급한 다른 변화는 네크로맨서의 시체 폭발이 화면 전체에 그림자 점을 남겨",
+                            "translation": "他们提到的另一个变化是死灵法师的尸爆"
+                        }
+                    ],
+                    "current_batch_subtitles": [
+                        {
+                            "index": 25,
+                            "original_text": "사람들이 무엇이든 볼 수 없게 만드는 그림자 점이 화면 전체에 퍼져 있다."
+                        },
+                        {
+                            "index": 26,
+                            "original_text": "플레이어들도 무슨 일이 벌어지고 있는지 볼 수 있도록 패치될 예정이다."
+                        },
+                        {
+                            "index": 27,
+                            "original_text": "땅에서 일어나는 일을 볼 수 있도록 하고 유해한 AoEs에 서 있지 않게 한다."
+                        }
+                    ],
+                    "next_batch_subtitles": [
+                        {
+                            "index": 28,
+                            "original_text": "이 라이브 스트림에서 가장 뜨거운 주제는 던전 엘리트 팩과 XP 그리고 어떻게"
+                        }
+                    ]
+                },
+                "output": {
+                    "current_batch_subtitles_translation": [
+                        {
+                            "index": 25,
+                            "original_text": "사람들이 무엇이든 볼 수 없게 만드는 그림자 점이 화면 전체에 퍼져 있다.",
+                            "translation": "尸爆会让屏幕上布满阴影点，使人们无法看清屏幕上的任何东西，"
+                        },
+                        {
+                            "index": 26,
+                            "original_text": "플레이어들도 무슨 일이 벌어지고 있는지 볼 수 있도록 패치될 예정이다.",
+                            "translation": "这将会被修补，以便玩家能够看清地面上发生的情况，"
+                        },
+                        {
+                            "index": 27,
+                            "original_text": "땅에서 일어나는事을 볼 수 있도록 하고 유해한 AoEs에 서 있지 않게 한다.",
+                            "translation": "这样不会站在有害的AoEs（范围伤害技能）中。"
+                        }
+                    ],
+                    "translation_mapping": {
+                        "시체 폭발": "尸爆",
+                        "네크로맨서": "死灵法师",
+                        "패치될 예정이다": "修补",
+                        "그림자 점": "阴影点",
+                        "AoEs": "范围伤害技能"
+                    }
+                }
+            },
+            {
+                "input": {
+                    "current_batch_subtitles": [
+                        {
+                            "index": 1,
+                            "original_text": "그래서 디아블로 2는 일부 아이템을 찾은 후에만 잠금을 해제할 수 있는 비밀 소 레벨이 있었습니다."
+                        },
+                        {
+                            "index": 2,
+                            "original_text": "세상에서 아이템,"
+                        }
+                    ],
+                    "translation_mapping": {
+                        "소 레벨": "奶牛关卡",
+                        "네크로맨서": "死灵法师"
+                    }
+                },
+                "output": {
+                    "current_batch_subtitles_translation": [
+                        {
+                            "index": 1,
+                            "original_text": "그래서 디아블로 2는 일부 아이템을 찾은 후에만 잠금을 해제할 수 있는 비밀 소 레벨이 있었습니다.",
+                            "translation": "暗黑破坏神2里有一个秘密奶牛关卡，你只有在找到一些物品之后才能解锁，"
+                        },
+                        {
+                            "index": 2,
+                            "original_text": "세상에서 아이템,",
+                            "translation": "这些物品需要在世界中找到，"
+                        }
+                    ],
+                    "translation_mapping": {
+                        "소 레벨": "奶牛关卡",
+                        "네크로맨서": "死灵法师",
+                        "디아블로 2": "暗黑破坏神"
+                    }
+                }
+            },
+            {
+                "input": {
+                    "current_batch_subtitles": [
+                        {
+                            "index": 102,
+                            "original_text": "예를 들어, 세 가지 다른 저항력이 있는 가슴피스를 찾을 수 있습니다."
+                        },
+                        {
+                            "index": 103,
+                            "original_text": "50% 정도의 것과 같은 것들이며, 당신은 와우 이것은 많은 피해 감소라고 생각합니다."
+                        }
+                    ]
+                },
+                "output": {
+                    "current_batch_subtitles_translation": [
+                        {
+                            "index": 102,
+                            "original_text": "예를 들어, 세 가지 다른 저항력이 있는 가슴피스를 찾을 수 있습니다.",
+                            "translation":"你可能会看到一个胸甲有3个50%左右的抗性，"
+                        },
+                        {
+                            "index": 103,
+                            "original_text": "50% 정도의 것과 같은 것들이며, 당신은 와우 이것은 많은 피해 감소라고 생각합니다.",
+                            "translation": "然后你会觉得哇，这是很大的伤害减免，"
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+}
