@@ -46,16 +46,16 @@ Note: You must provide either --youtube_url or --local_video, but not both.
 
 # Example
 
-To download a YouTube video, transcribe it, and generate dual subtitles using the M2M100 translation method:
+To download a <u>YouTube video</u>, transcribe it, and generate subtitles in target language using the google api to translate:
 
 ```
 python main.py --youtube_url [YOUTUBE_URL] --target_language 'zh' --model 'small' --translation_method 'google'
 ```
 
-To process a local video file, transcribe it, and generate dual subtitles using Whisper's transcribe method (you will need to download the large Whisper model if it is not already downloaded):
+To process a <u>local video file</u>, transcribe it, and generate subtitles in target language using gpt3.5-16k (you will need to provide an OpenAI API key)):
 
 ```
-python main.py --local_video [VIDEO_FILE_PATH] --target_language 'zh' --model 'large' --translation_method 'whisper'
+python main.py --local_video [VIDEO_FILE_PATH] --target_language 'zh' --model 'medium' --translation_method 'gpt'
 ```
 
 
@@ -64,12 +64,12 @@ The script will generate the following output files in the same directory as the
 - An SRT file containing the original transcribed subtitles.
 - An SRT file containing the translated subtitles.
 - An SRT file containing the combined dual subtitles.
-- A video file with embedded dual subtitles (not yet work).
+- A video file with embedded dual subtitles (not working yet).
 
 
-# Subtitle Translation using GPT-3.5 （translate_gpt.py）
+# Subtitle Translation using GPT-3.5-16k （translate_gpt.py）
 
-This script translates subtitles using OpenAI's GPT-3.5 language model. It requires an OpenAI API key to function. In some cases, GPT-based translation might produce better results compared to Google Translate, especially when dealing with context-specific translations or idiomatic expressions. This script aims to provide an alternative method for translating subtitles when traditional translation services like Google Translate do not produce satisfactory results.
+This script translates subtitles using OpenAI's GPT-3.5 language model. It requires an **OpenAI API key** to function. In most cases, GPT-based translation produce much better results compared to Google Translate, especially when dealing with context-specific translations or idiomatic expressions. This script aims to provide an alternative method for translating subtitles when traditional translation services like Google Translate do not produce satisfactory results.
 ### Setup
 1. Sign up for an API key from OpenAI at https://platform.openai.com/account/api-keys
 2. Once you have the API key, create a file named .env in the same directory as the script.
@@ -89,8 +89,12 @@ python translate_gpt.py --input_file INPUT_FILE_PATH [--batch_size BATCH_SIZE] [
 ### Arguments
 
 - --input_file: The path to the input subtitle file. (Required)
-- --batch_size: The number of subtitles to process in a batch. (Optional, default: 3)
+- --batch_size: The number of subtitles to process in a batch. (Optional, default: 40)
 - --target_language: The target language for translation. (Optional, default: 'zh' for Simplified Chinese)
+- --source_language: The source language of the input subtitle file. (Optional, default: 'en' for English)
+--video_info: You may provide some additional information about the video to improve translation accuracy. (Optional, default: None)
+
+note: video_info can be in any language, you can tell gpt the video is about what topic. For example, if you are translating a video about playing some games, you can ask gpt to accurately translate the proper nouns of that game (or ask it to translate the proper nouns with exactly the proper nouns you provided). 
 
 
 [showcase of GPT-3.5 translation](https://www.bilibili.com/video/BV1xv4y1E7ZD/)
@@ -103,7 +107,7 @@ Contributions are more than welcome!
 # TODO
 - [ ] Fix the bug that prevents embedding dual subtitles into the video.
 - [ ] Implement a GUI to make the tool more user-friendly.
-- [ ] Let GPT summarize a list of word-to-word translation in its response and use it to improve translation consistency, and let human post-process the transcript by modify the dictionary.
+- [x] Let GPT summarize a list of word-to-word translation in its response and use it to improve translation consistency, and let human post-process the transcript by modify the dictionary.
 - [ ] Use GPT4 to generate Few-shot examples for other language pairs, and make a JSON file for the examples.
 - [x] Explore the possibility of using offline small GPT models. (I tried some models on [webGUI](https://github.com/oobabooga/text-generation-webui) with the prompt, but they mostly output random text or translation that are worst than google translate)
 - [ ] [Fine-tune Whisper](https://github.com/jumon/whisper-finetuning) on (English audio, Chinese subtitle) dataset to improve x-to-Chinese translation accuracy
