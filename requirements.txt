@@ -15,3 +15,4 @@ openai
 youtube-transcript-api
 faster-whisper
 ujson
+python-dotenv

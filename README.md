@@ -82,7 +82,7 @@ Replace your_api_key_here with the API key you obtained from OpenAI.
 ### Usage
 
 ```
-python translate_gpt.py --input_file INPUT_FILE_PATH [--batch_size BATCH_SIZE] [--target_language TARGET_LANGUAGE]
+python translate_gpt.py --input_file INPUT_FILE_PATH [--batch_size BATCH_SIZE] [--target_language TARGET_LANGUAGE] [--source_language SOURCE_LANGUAGE] [--video_info VIDEO_INFO]
 
 ```
 
@@ -96,6 +96,7 @@ python translate_gpt.py --input_file INPUT_FILE_PATH [--batch_size BATCH_SIZE] [
 
 note: video_info can be in any language, you can tell gpt the video is about what topic. For example, if you are translating a video about playing some games, you can ask gpt to accurately translate the proper nouns of that game (or ask it to translate the proper nouns with exactly the proper nouns you provided). 
 
+The script currently works best with English as the source language and Simplified Chinese as the target language. However, you can also use other language pairs, and add your own few-shot examples into few_shot_examples.json to improve translation accuracy, but GPT are not so good at dealing with more than two languages, so you may also need to modify the prompt in translate_gpt.py to make it work. 
 
 [showcase of GPT-3.5 translation](https://www.bilibili.com/video/BV1xv4y1E7ZD/)
 
