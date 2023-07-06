@@ -1,5 +1,7 @@
 # Dual Subtitles for Video
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1XDLFlgew9BzUqNpTv_kq0HNocTNOSekP?usp=sharing)
+
 下载 YouTube 视频（或提供您自己的视频）并使用 Whisper 和翻译API生成双语字幕
 
 This project is a Python script that downloads a YouTube video (or uses a local video file), transcribes it, translates the transcript into a target language, and generates a video with dual subtitles (original and translated). The transcription and translation are powered by the Whisper model and the translation API (M2M100, google, GPT3.5), respectively.
@@ -116,6 +118,7 @@ Contributions are more than welcome!
 # Google Colab Example
 You can also try out this script using a Google Colab notebook. Click the link below to access the example:
 
-[Colab](https://colab.research.google.com/drive/1XDLFlgew9BzUqNpTv_kq0HNocTNOSekP?usp=sharing)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1XDLFlgew9BzUqNpTv_kq0HNocTNOSekP?usp=sharing)
+
 
 Follow the instructions in the notebook to download the necessary packages and models, and to run the script on your desired YouTube video or local video file.
