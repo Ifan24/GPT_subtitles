@@ -84,12 +84,18 @@ class YouTubeDownloader:
 
     def download_video(self):
         yt = YouTube(self.url)
+        count = 0
         while True:
+            if count > 5:
+                print("Use tmp.mp4 as the video name")
+                title = 'tmp'
+                break
             try:
                 title = yt.title
                 break
             except:
                 print("Failed to get name. Retrying... Press Ctrl+Z to exit")
+                count += 1    
                 time.sleep(1)
                 yt = YouTube(self.url)
                 continue
