@@ -114,7 +114,8 @@ Contributions are more than welcome!
 - [ ] Use GPT4 to generate Few-shot examples for other language pairs, and make a JSON file for the examples.
 - [x] Explore the possibility of using offline small GPT models. (I tried some models on [webGUI](https://github.com/oobabooga/text-generation-webui) with the prompt, but they mostly output random text or translation that are worst than google translate)
 - [ ] [Fine-tune Whisper](https://github.com/jumon/whisper-finetuning) on (English audio, Chinese subtitle) dataset to improve x-to-Chinese translation accuracy
-
+- [ ] use multi process to speed up the translation process
+  
 # Google Colab Example
 You can also try out this script using a Google Colab notebook. Click the link below to access the example:
 

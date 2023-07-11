@@ -91,18 +91,16 @@
                         {
                             "index": 1,
                             "original_text": "So Diablo 2 had a secret cow level which you could only unlock after you found some",
-                            "translation": "暗黑破坏神2里有一个秘密奶牛关卡，你只有在找到一些物品之后才能解锁，"
+                            "translation": "暗黑破坏神2里有一个秘密奶牛关卡，你只有在找到一些"
                         },
                         {
                             "index": 2,
                             "original_text": "items in the world,",
-                            "translation": "这些物品需要在世界中找到，"
+                            "translation": "世界中的物品之后才能解锁，"
                         }
                     ],
                     "translation_mapping": {
-                        "cow level": "奶牛关卡",
-                        "necromancer": "死灵法师",
-                        "Diablo 2": "暗黑破坏神"
+                        "Diablo 2": "暗黑破坏神2"
                     }
                 }
             },
@@ -125,14 +123,18 @@
                         {
                             "index": 102,
                             "original_text": "You may find a chest piece for example that has like three different resistances",
-                            "translation": "你可能会看到一个胸甲有3个50%左右的抗性，"
+                            "translation": "你可能会找到一个胸甲有3个50%左右的抗性，"
                         },
                         {
                             "index": 103,
                             "original_text": "with like 50% or something like that and you think wow this is a lot of damage reduction",
-                            "translation": "然后你会觉得哇，这是很大的伤害减免，"
+                            "translation": "然后你会觉得哇，这是很多的伤害减免，"
                         }
-                    ]
+                    ],
+                    "translation_mapping": {
+                        "resistances": "抗性",
+                        "damage reduction": "伤害减免"
+                    }
                 }
             }
         ]

@@ -142,8 +142,9 @@ class YouTubeDownloader:
 
         # Find the downloaded video file
         downloaded_video_path = None
-        count = 0
+        count_time = 0
         while downloaded_video_path is None:
+            # check if the video has been downloaded
             count = 0
             for file in os.listdir(video_folder):
                 if file.endswith(".mp4"):
@@ -151,8 +152,8 @@ class YouTubeDownloader:
                     count += 1
             if count == 1:
                 break
-            print(f" | Waiting for video to download... | time elapsed: {count} seconds |")
-            count += 30
+            print(f" | Waiting for video to download... | time elapsed: {count_time} seconds |")
+            count_time += 30
             time.sleep(30)
 
         print('Download complete: ' + downloaded_video_path)
