@@ -2,11 +2,17 @@
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1XDLFlgew9BzUqNpTv_kq0HNocTNOSekP?usp=sharing)
 
-下载 YouTube 视频（或提供您自己的视频）并使用 Whisper 和翻译API生成双语字幕
+下载 YouTube 视频（或提供您自己的视频）并使用 Whisper 和翻译API生成双语字幕，中文文档请见 [中文](README_zh.md)
 
 This project is a Python script that downloads a YouTube video (or uses a local video file), transcribes it, translates the transcript into a target language, and generates a video with dual subtitles (original and translated). The transcription and translation are powered by the Whisper model and the translation API (M2M100, google, GPT3.5), respectively.
 
 <!-- Note: Embedding the subtitles into the video is not working yet, due to some bugs causing the font in non-English languages to not be found. For now, it will only generate a dual-language SRT file. -->
+
+GPT-3.5 translation compared to Google Translate
+![GPT-3.5 translation compared to Google Translate](assets/google-vs-gpt.png)
+
+Arguments:
+![arguments](assets/args.png)
 
 
 # Requirements
@@ -72,6 +78,9 @@ The script will generate the following output files in the same directory as the
 # Subtitle Translation using GPT-3.5-16k （translate_gpt.py）
 
 This script translates subtitles using OpenAI's GPT-3.5 language model. It requires an **OpenAI API key** to function. In most cases, GPT-based translation produce much better results compared to Google Translate, especially when dealing with context-specific translations or idiomatic expressions. This script aims to provide an alternative method for translating subtitles when traditional translation services like Google Translate do not produce satisfactory results.
+
+
+
 ### Setup
 1. Sign up for an API key from OpenAI at https://platform.openai.com/account/api-keys
 2. Once you have the API key, create a file named .env in the same directory as the script.
@@ -94,7 +103,7 @@ python translate_gpt.py --input_file INPUT_FILE_PATH [--batch_size BATCH_SIZE] [
 - --batch_size: The number of subtitles to process in a batch. (Optional, default: 40)
 - --target_language: The target language for translation. (Optional, default: 'zh' for Simplified Chinese)
 - --source_language: The source language of the input subtitle file. (Optional, default: 'en' for English)
---video_info: You may provide some additional information about the video to improve translation accuracy. (Optional, default: None)
+- --video_info: You may provide some additional information about the video to improve translation accuracy. (Optional, default: None)
 
 note: video_info can be in any language, you can tell gpt the video is about what topic. For example, if you are translating a video about playing some games, you can ask gpt to accurately translate the proper nouns of that game (or ask it to translate the proper nouns with exactly the proper nouns you provided). 
 

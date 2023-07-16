@@ -147,7 +147,7 @@ class SubtitleProcessor:
         # model = WhisperModel(model_size, device="cpu", compute_type="int8")
         
         print("Transcribing audio...")
-        segments, info = model.transcribe(self.video_path, word_timestamps=True)
+        segments, info = model.transcribe(self.video_path, word_timestamps=True, vad_filter=True, vad_parameters=dict(min_silence_duration_ms=500))
         
         print("Detected language '%s' with probability %f" % (info.language, info.language_probability))
         self.video_language = info.language
