@@ -113,13 +113,16 @@ def check_response(input_subtitles, translated_subtitles):
         
 
 class Translator:
-    def __init__(self, model='gpt-3.5-turbo-16k', batch_size=40, target_language='zh', source_language='en', titles='Video Title not found', video_info=None, input_path=None):
+    def __init__(self, model='gpt-3.5-turbo-16k', batch_size=40, target_language='zh', source_language='en', titles='Video Title not found', video_info=None, input_path=None, no_translation_mapping=False):
         self.model = model
         self.batch_size = batch_size
         self.target_language = target_language
         self.source_language = source_language
         self.titles = titles
         self.video_info = video_info
+        self.input_path = input_path
+        
+        self.no_translation_mapping = no_translation_mapping
         self.cumulative_mapping = {}
         
         with open('few_shot_examples.json', 'r') as f:
@@ -387,7 +390,7 @@ Guidelines:
         if warning_message:
             user_input["Warning_message"] = f"In a previous request sent to OpenAI, the response is problematic. Please double-check your answer. Warning message: {warning_message}"
         
-        if len(self.cumulative_mapping) != 0:
+        if len(self.cumulative_mapping) != 0 and not self.no_translation_mapping:
             user_input["translation_mapping"] = self.cumulative_mapping
         return user_input
 
@@ -487,6 +490,9 @@ Guidelines:
             self.logger.info(tt_merged)
             self.logger.info("========End of Batch summary=======\n")
             translated.append(tt_merged)
+            
+            with open(os.path.join(os.path.dirname(self.input_path), 'tmp_subtitles.json'), 'w') as f:
+                ujson.dump(translated, f, ensure_ascii=False, indent=2) 
 
         translated = ''.join(translated)
         raw_translated = ''.join(raw_translated)
@@ -502,12 +508,12 @@ Guidelines:
         
         return translated, raw_translated
 
-def translate_with_gpt(input_file, target_language='zh', source_language='en', batch_size=40, model='gpt-3.5-turbo-16k', video_info=None):
+def translate_with_gpt(input_file, target_language='zh', source_language='en', batch_size=40, model='gpt-3.5-turbo-16k', video_info=None, no_translation_mapping=False):
     # Extract the file name without the extension
     file_name = os.path.splitext(os.path.basename(input_file))[0]
     
     subtitle = Subtitle(input_file)
-    translator = Translator(model=model, batch_size=batch_size, target_language=target_language, source_language=source_language, titles=file_name, video_info=video_info, input_path=input_file)
+    translator = Translator(model=model, batch_size=batch_size, target_language=target_language, source_language=source_language, titles=file_name, video_info=video_info, input_path=input_file, no_translation_mapping=no_translation_mapping)
 
     subtitle_batches, timestamps_batches = subtitle.get_processed_batches_and_timestamps(batch_size)
     translated_subtitles, raw_translated_subtitles = translator.batch_translate(subtitle_batches, timestamps_batches)
@@ -525,10 +531,11 @@ def main():
     parser.add_argument('-s', '--source_language', help='The source language for translation.', default='en')
     parser.add_argument('-v', "--video_info", type=str, default="", help="Additional information about the video.")
     parser.add_argument('-m', '--model', default='gpt-3.5-turbo-16k', help='Model for OpenAI API', type=str, choices=['gpt-3.5-turbo', 'gpt-4', 'gpt-3.5-turbo-16k', 'gpt-3.5-turbo-16k-0613'])
+    parser.add_argument('-um', "--no_mapping", action='store_true', help="don't use translation mapping as input to the model" )
     
     args = parser.parse_args()
 
-    translate_with_gpt(args.input_file, args.target_language, args.source_language, args.batch_size , args.model, args.video_info)
+    translate_with_gpt(args.input_file, args.target_language, args.source_language, args.batch_size , args.model, args.video_info, args.no_mapping)
 
 
 
