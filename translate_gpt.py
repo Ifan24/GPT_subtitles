@@ -113,7 +113,7 @@ def check_response(input_subtitles, translated_subtitles):
         
 
 class Translator:
-    def __init__(self, model='gpt-3.5-turbo-16k', batch_size=40, target_language='zh', source_language='en', titles='Video Title not found', video_info=None, input_path=None, no_translation_mapping=False):
+    def __init__(self, model='gpt-3.5-turbo-16k', batch_size=40, target_language='zh', source_language='en', titles='Video Title not found', video_info=None, input_path=None, no_translation_mapping=False, load_from_tmp=False):
         self.model = model
         self.batch_size = batch_size
         self.target_language = target_language
@@ -124,6 +124,8 @@ class Translator:
         
         self.no_translation_mapping = no_translation_mapping
         self.cumulative_mapping = {}
+        
+        self.load_from_tmp = load_from_tmp
         
         with open('few_shot_examples.json', 'r') as f:
             few_shot_examples = ujson.load(f)
@@ -221,6 +223,7 @@ Guidelines:
 - You may receive original text in other languages, but please only output {self.target_language} translation.
 
 - Please translate the following subtitles and summarize all the proper nouns that appear to generate a mapping.
+- Please only output the proper nouns and their translation that appear in the current batch of subtitles, do not repeat from the input
 - You may receive translation_mapping as input, which is a mapping of proper nouns to their translation in {self.target_language}. 
 - Please follow this mapping to translate the subtitles to improve translation consistency.
 
@@ -447,6 +450,7 @@ Guidelines:
         number_of_retry = 0
         total_wasted_dollars = 0
         prev_translated_subtitle = None
+        
         def extract_line(text, num_lines, is_next=False):
             """
             Extracts a specific number of lines from the given text.
@@ -465,7 +469,17 @@ Guidelines:
                 selected_entries = '\n\n'.join(entries[-num_lines:])
             return selected_entries
             
-        for i, t in enumerate(tqdm(subtitle_batches)):
+        # if tmp_file exists, load the previous translated subtitles
+        tmp_file = os.path.join(os.path.dirname(self.input_path), 'tmp_subtitles.json')
+        if os.path.exists(tmp_file):
+            with open(tmp_file, 'r') as f:
+                previous_subtitles = ujson.load(f)
+        
+        if self.load_from_tmp:
+            translated = previous_subtitles
+            skip_length = len(translated)
+        
+        for i, t in enumerate(tqdm(subtitle_batches[skip_length if self.load_from_tmp else 0:])):
             prev_subtitle = subtitle_batches[i - 1] if i > 0 else None
             next_subtitle = subtitle_batches[i + 1] if i < len(subtitle_batches) - 1 else None
             
@@ -491,7 +505,7 @@ Guidelines:
             self.logger.info("========End of Batch summary=======\n")
             translated.append(tt_merged)
             
-            with open(os.path.join(os.path.dirname(self.input_path), 'tmp_subtitles.json'), 'w') as f:
+            with open(tmp_file, 'w') as f:
                 ujson.dump(translated, f, ensure_ascii=False, indent=2) 
 
         translated = ''.join(translated)
@@ -508,12 +522,13 @@ Guidelines:
         
         return translated, raw_translated
 
-def translate_with_gpt(input_file, target_language='zh', source_language='en', batch_size=40, model='gpt-3.5-turbo-16k', video_info=None, no_translation_mapping=False):
+def translate_with_gpt(input_file, target_language='zh', source_language='en', batch_size=40, model='gpt-3.5-turbo-16k', video_info=None, no_translation_mapping=False, load_from_tmp=False):
     # Extract the file name without the extension
     file_name = os.path.splitext(os.path.basename(input_file))[0]
     
     subtitle = Subtitle(input_file)
-    translator = Translator(model=model, batch_size=batch_size, target_language=target_language, source_language=source_language, titles=file_name, video_info=video_info, input_path=input_file, no_translation_mapping=no_translation_mapping)
+    translator = Translator(model=model, batch_size=batch_size, target_language=target_language, source_language=source_language, 
+        titles=file_name, video_info=video_info, input_path=input_file, no_translation_mapping=no_translation_mapping, load_from_tmp=load_from_tmp)
 
     subtitle_batches, timestamps_batches = subtitle.get_processed_batches_and_timestamps(batch_size)
     translated_subtitles, raw_translated_subtitles = translator.batch_translate(subtitle_batches, timestamps_batches)
@@ -532,10 +547,12 @@ def main():
     parser.add_argument('-v', "--video_info", type=str, default="", help="Additional information about the video.")
     parser.add_argument('-m', '--model', default='gpt-3.5-turbo-16k', help='Model for OpenAI API', type=str, choices=['gpt-3.5-turbo', 'gpt-4', 'gpt-3.5-turbo-16k', 'gpt-3.5-turbo-16k-0613'])
     parser.add_argument('-um', "--no_mapping", action='store_true', help="don't use translation mapping as input to the model" )
+    parser.add_argument('-lt', "--load_tmp_file", action='store_true', help="load the previous translated subtitles, assume previous tmp file generated with the same setting as the current run")
     
     args = parser.parse_args()
 
-    translate_with_gpt(args.input_file, args.target_language, args.source_language, args.batch_size , args.model, args.video_info, args.no_mapping)
+    translate_with_gpt(args.input_file, args.target_language, args.source_language, 
+                args.batch_size , args.model, args.video_info, args.no_mapping, args.load_tmp_file)
 
 
 
