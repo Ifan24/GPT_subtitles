@@ -112,7 +112,7 @@ python translate_gpt.py --input_file INPUT_FILE_PATH [--batch_size BATCH_SIZE] [
 
 该脚本在来源语言为英语、目标语言为简体中文时的效果最好。但是，您也可以使用其他语言对，并将自己的 few-shot 示例添加到 few_shot_examples.json 中以提高翻译准确性，但是 GPT 处理超过两种语言的能力不是很好，所以您可能还需要修改 translate_gpt.py 中的提示以使其正常工作。
 
-[GPT-3.5 翻译演示](https://www.bilibili.com/video/BV1xv4y1E7ZD/)
+<!-- [GPT-3.5 翻译演示](https://www.bilibili.com/video/BV1xv4y1E7ZD/) -->
 
 
 # 贡献

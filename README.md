@@ -109,7 +109,7 @@ note: video_info can be in any language, you can tell gpt the video is about wha
 
 The script currently works best with English as the source language and Simplified Chinese as the target language. However, you can also use other language pairs, and add your own few-shot examples into few_shot_examples.json to improve translation accuracy, but GPT are not so good at dealing with more than two languages, so you may also need to modify the prompt in translate_gpt.py to make it work. 
 
-[showcase of GPT-3.5 translation](https://www.bilibili.com/video/BV1xv4y1E7ZD/)
+<!-- [showcase of GPT-3.5 translation](https://www.bilibili.com/video/BV1xv4y1E7ZD/) -->
 
 
 # Contributing

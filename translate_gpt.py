@@ -445,7 +445,6 @@ Guidelines:
 
 
         translated = []
-        raw_translated = []
         total_dollars = 0
         number_of_retry = 0
         total_wasted_dollars = 0
@@ -471,15 +470,21 @@ Guidelines:
             
         # if tmp_file exists, load the previous translated subtitles
         tmp_file = os.path.join(os.path.dirname(self.input_path), 'tmp_subtitles.json')
+        skip_length = 0
         if os.path.exists(tmp_file):
             with open(tmp_file, 'r') as f:
                 previous_subtitles = ujson.load(f)
         
-        if self.load_from_tmp:
-            translated = previous_subtitles
-            skip_length = len(translated)
+            # skip the first n batch if load from tmp file
+            if self.load_from_tmp:
+                translated = previous_subtitles
+                skip_length = len(translated)
         
-        for i, t in enumerate(tqdm(subtitle_batches[skip_length if self.load_from_tmp else 0:])):
+        for i, t in enumerate(tqdm(subtitle_batches)):
+            if skip_length > 0:
+                skip_length -= 1
+                continue
+                
             prev_subtitle = subtitle_batches[i - 1] if i > 0 else None
             next_subtitle = subtitle_batches[i + 1] if i < len(subtitle_batches) - 1 else None
             
@@ -489,7 +494,6 @@ Guidelines:
 
             tt, used_dollars, retry_count, wasted_dollars = self.translate_subtitles(t, prev_subtitle, next_subtitle, prev_translated_subtitle)
             prev_translated_subtitle = tt
-            raw_translated.append(tt)
             tt_merged = merge_subtitles_with_timestamps(tt, timestamps_batches[i])
             total_dollars += used_dollars
             number_of_retry += retry_count
@@ -509,7 +513,6 @@ Guidelines:
                 ujson.dump(translated, f, ensure_ascii=False, indent=2) 
 
         translated = ''.join(translated)
-        raw_translated = ''.join(raw_translated)
 
         self.logger.info(translated)
         self.logger.info("========Translate summary=======\n")
@@ -520,7 +523,7 @@ Guidelines:
         self.logger.info("========translation mapping=======\n")
         self.logger.info(self.cumulative_mapping)
         
-        return translated, raw_translated
+        return translated
 
 def translate_with_gpt(input_file, target_language='zh', source_language='en', batch_size=40, model='gpt-3.5-turbo-16k', video_info=None, no_translation_mapping=False, load_from_tmp=False):
     # Extract the file name without the extension
@@ -531,7 +534,7 @@ def translate_with_gpt(input_file, target_language='zh', source_language='en', b
         titles=file_name, video_info=video_info, input_path=input_file, no_translation_mapping=no_translation_mapping, load_from_tmp=load_from_tmp)
 
     subtitle_batches, timestamps_batches = subtitle.get_processed_batches_and_timestamps(batch_size)
-    translated_subtitles, raw_translated_subtitles = translator.batch_translate(subtitle_batches, timestamps_batches)
+    translated_subtitles = translator.batch_translate(subtitle_batches, timestamps_batches)
 
     output_file = os.path.join(os.path.dirname(input_file), f"{os.path.splitext(os.path.basename(input_file))[0]}_{target_language}_gpt.srt")
     subtitle.save_subtitles(output_file, translated_subtitles)
