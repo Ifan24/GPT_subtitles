@@ -123,9 +123,16 @@ class Translator:
         self.input_path = input_path
         
         self.no_translation_mapping = no_translation_mapping
-        self.cumulative_mapping = {}
+        self.mapping_dict = {}
+        self.translations = set()
+        self.max_size = 40
+        self.mappings = []
+        self.all_mappings = []
         
         self.load_from_tmp = load_from_tmp
+        
+        self.translate_max_retry = 2
+        
         
         with open('few_shot_examples.json', 'r') as f:
             few_shot_examples = ujson.load(f)
@@ -171,13 +178,28 @@ class Translator:
     # First Occurrence: The first translation we encounter for a term is the one we keep. If we see a different translation later, we ignore it.
     def append_translation(self, new_mapping):
         for term, translation in new_mapping.items():
-            if term not in self.cumulative_mapping:
-                # If the term doesn't exist in the cumulative mapping, add it
-                self.cumulative_mapping[term] = translation
-            # If the term exists, we do nothing (keeping the first translation we encountered)
+            # to lower case
+            proper_noun = term.lower().strip()
+            if proper_noun not in self.mapping_dict and translation not in self.translations:
+                if len(self.mappings) == self.max_size:
+                    removed_proper_noun, removed_translation = self.mappings.pop(0)
+                    del self.mapping_dict[removed_proper_noun]
+                    self.translations.remove(removed_translation)
+                self.mappings.append((proper_noun, translation))
+                self.mapping_dict[proper_noun] = translation
+                self.translations.add(translation)
+            
+            self.all_mappings.append((proper_noun, translation))    
+        
+        #     if term not in self.mapping_dict:
+        #         # If the term doesn't exist in the cumulative mapping, add it
+        #         self.mapping_dict[term] = translation
+        #     # If the term exists, we do nothing (keeping the first translation we encountered)
+        
+        
         # sort the mapping by key
-        self.cumulative_mapping = dict(sorted(self.cumulative_mapping.items(), key=lambda item: item[0]))
-    
+        self.mapping_dict = dict(sorted(self.mapping_dict.items(), key=lambda item: item[0]))
+        self.all_mappings = sorted(self.all_mappings, key=lambda item: item[0])
     
     def process_line(self, line):
             subtitles = []
@@ -260,10 +282,10 @@ Guidelines:
         self.logger.info(messages)
         self.logger.info("========End of Messages========\n")
         
-        max_retries = 3
+        max_retries = self.translate_max_retry
         retry_count = 0
         translated_subtitles = ''
-        
+        finish_reasons = set()
         while retry_count < max_retries:
             try:
                 answer = ''
@@ -287,6 +309,8 @@ Guidelines:
                     # RETRIEVE THE TEXT FROM THE RESPONSE
                     event_time = time.time() - start_time  
                     event_text = event['choices'][0]['delta']
+                    finish_reason = event['choices'][0]['finish_reason']
+                    finish_reasons.add(str(finish_reason))
                     answer = event_text.get('content', '')
                     translated_subtitles += answer
                     time.sleep(delay_time)
@@ -304,7 +328,9 @@ Guidelines:
                 
                 self.logger.info("========Response========\n")
                 self.logger.info(ujson.dumps(translated_subtitles, ensure_ascii=False, indent=4))
-
+                self.logger.info(self.all_mappings)
+                self.logger.info(f"finish_reasons: {finish_reasons}")
+                
                 data = ujson.loads(cleaned_json_string)
                 translation_mapping = data["translation_mapping"]
                 self.append_translation(translation_mapping)
@@ -393,8 +419,8 @@ Guidelines:
         if warning_message:
             user_input["Warning_message"] = f"In a previous request sent to OpenAI, the response is problematic. Please double-check your answer. Warning message: {warning_message}"
         
-        if len(self.cumulative_mapping) != 0 and not self.no_translation_mapping:
-            user_input["translation_mapping"] = self.cumulative_mapping
+        if len(self.mapping_dict) != 0 and not self.no_translation_mapping:
+            user_input["translation_mapping"] = self.mapping_dict
         return user_input
 
     def count_used_dollars(self, translated_subtitles, messages):
@@ -427,7 +453,7 @@ Guidelines:
 
         cumulative_warning = ""
         wasted_dollars = 0
-        while (blocks != subtitles_length or additional_content or problematic_blocks) and count < 3:
+        while (blocks != subtitles_length or additional_content or problematic_blocks) and count < self.translate_max_retry:
             self.logger.info("========Retrying========\n")
             self.logger.info(translated_subtitles)
             warning_message = f"Warning: Mismatch in the number of lines ({blocks} != {subtitles_length}), or additional content found ({additional_content}), or problematic blocks ({problematic_blocks}), retry count {count}..."
@@ -521,7 +547,7 @@ Guidelines:
         self.logger.info(f"total wasted dollars: {total_wasted_dollars:.3f}\n")
         self.logger.info("========End of Translate summary=======\n")
         self.logger.info("========translation mapping=======\n")
-        self.logger.info(self.cumulative_mapping)
+        self.logger.info(self.all_mappings)
         
         return translated
 
