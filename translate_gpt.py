@@ -66,6 +66,71 @@ class Subtitle:
 
 
 
+class TranslationMapping:
+    def __init__(self, max_size):
+        self.max_size = max_size
+        self.mapping_dict = {}
+        self.translations = set()
+        self.all_mappings = []
+        self.current_index = 0  # Keep track of the most recent subtitle index
+
+    def add_mapping(self, new_mapping, translations):
+        for subtitle in translations:
+            index = subtitle["index"]
+            self.current_index = max(self.current_index, index)  # Update the most recent subtitle index
+            translation = subtitle["translation"]
+            original_text = subtitle["original_text"]
+
+            words = re.findall(r'\b\w+\b', original_text)
+
+            for word in words:
+                if word in self.mapping_dict:
+                    self.mapping_dict[word]['frequency'] += 1
+                    self.mapping_dict[word]['index'] = index
+                    self.calculate_score(word)
+
+        for term, translation in new_mapping.items():
+            # Preprocess term
+            proper_noun = term.lower().strip()
+
+            if proper_noun not in self.mapping_dict and translation not in self.translations:
+                if len(self.mapping_dict) == self.max_size:
+                    # Remove the mapping with the lowest score
+                    proper_noun_to_remove = min(self.mapping_dict, key=lambda x: self.mapping_dict[x]['score'])
+                    removed_translation = self.mapping_dict[proper_noun_to_remove]['translation']
+                    del self.mapping_dict[proper_noun_to_remove]
+                    self.translations.remove(removed_translation)
+
+                self.mapping_dict[proper_noun] = {'translation': translation, 'frequency': 1, 'index': self.current_index, 'score': 0}
+                self.translations.add(translation)
+
+            self.all_mappings.append((proper_noun, translation))
+
+        # sort the mapping by key so it is easier to check for human
+        self.mapping_dict = dict(sorted(self.mapping_dict.items(), key=lambda item: item[0]))
+        self.all_mappings = sorted(self.all_mappings, key=lambda item: item[0])
+
+    def calculate_score(self, proper_noun):
+        # Here, we give equal weight to frequency and recency. 
+        # Adjust the weights depending on which factor you want to prioritize.
+        frequency_score = self.mapping_dict[proper_noun]['frequency']
+        index_difference = self.current_index - self.mapping_dict[proper_noun]['index'] + 1
+        recency_score = 1 / index_difference
+        self.mapping_dict[proper_noun]['score'] = frequency_score * recency_score
+
+    def get_mappings(self):
+        return {proper_noun: mapping['translation'] for proper_noun, mapping in self.mapping_dict.items()}
+
+    def get_all_mappings(self):
+        unique_mappings = list(set(self.all_mappings))  # Removes duplicates
+        sorted_mappings = sorted(unique_mappings, key=lambda item: item[0])
+        return "\n".join(f"{proper_noun} : {translation}" for proper_noun, translation in sorted_mappings)
+
+    def get_current_mappings(self):
+        sorted_mappings = sorted(self.mapping_dict.items(), key=lambda item: item[0])
+        return "\n".join(f"{proper_noun} : {mapping['translation']}" for proper_noun, mapping in sorted_mappings)
+
+
 def merge_subtitles_with_timestamps(translated_subtitles, timestamps):
     translated_lines = translated_subtitles.split('\n')
     merged_lines = []
@@ -122,12 +187,10 @@ class Translator:
         self.video_info = video_info
         self.input_path = input_path
         
+        # LRFU (Least Recently/Frequently Used) 
+        self.translation_mapping = TranslationMapping(max_size=40)
+        
         self.no_translation_mapping = no_translation_mapping
-        self.mapping_dict = {}
-        self.translations = set()
-        self.max_size = 40
-        self.mappings = []
-        self.all_mappings = []
         
         self.load_from_tmp = load_from_tmp
         
@@ -175,32 +238,6 @@ class Translator:
         # Add handler to OpenAI response logger
         self.openai_logger.addHandler(openai_file_handler)
         
-    # First Occurrence: The first translation we encounter for a term is the one we keep. If we see a different translation later, we ignore it.
-    def append_translation(self, new_mapping):
-        for term, translation in new_mapping.items():
-            # to lower case
-            proper_noun = term.lower().strip()
-            if proper_noun not in self.mapping_dict and translation not in self.translations:
-                if len(self.mappings) == self.max_size:
-                    removed_proper_noun, removed_translation = self.mappings.pop(0)
-                    del self.mapping_dict[removed_proper_noun]
-                    self.translations.remove(removed_translation)
-                self.mappings.append((proper_noun, translation))
-                self.mapping_dict[proper_noun] = translation
-                self.translations.add(translation)
-            
-            self.all_mappings.append((proper_noun, translation))    
-        
-        #     if term not in self.mapping_dict:
-        #         # If the term doesn't exist in the cumulative mapping, add it
-        #         self.mapping_dict[term] = translation
-        #     # If the term exists, we do nothing (keeping the first translation we encountered)
-        
-        
-        # sort the mapping by key
-        self.mapping_dict = dict(sorted(self.mapping_dict.items(), key=lambda item: item[0]))
-        self.all_mappings = sorted(self.all_mappings, key=lambda item: item[0])
-    
     def process_line(self, line):
             subtitles = []
             lines = line.split("\n")
@@ -328,12 +365,10 @@ Guidelines:
                 
                 self.logger.info("========Response========\n")
                 self.logger.info(ujson.dumps(translated_subtitles, ensure_ascii=False, indent=4))
-                self.logger.info(self.all_mappings)
+          
                 self.logger.info(f"finish_reasons: {finish_reasons}")
                 
                 data = ujson.loads(cleaned_json_string)
-                translation_mapping = data["translation_mapping"]
-                self.append_translation(translation_mapping)
         
                 # Extract translations and construct the output string
                 output_string = ""
@@ -341,6 +376,12 @@ Guidelines:
                     index = subtitle["index"]
                     translation = subtitle["translation"]
                     output_string += f"{index}\n{translation}\n\n"
+                
+                translation_mapping = data["translation_mapping"]
+                self.translation_mapping.add_mapping(translation_mapping, data["current_batch_subtitles_translation"])
+                
+                # self.logger.info(self.translation_mapping.get_all_mappings())
+                self.logger.info(ujson.dumps(self.translation_mapping.mapping_dict, ensure_ascii=False, indent=4))
                 
                 return output_string, total_used_dollars
 
@@ -419,8 +460,9 @@ Guidelines:
         if warning_message:
             user_input["Warning_message"] = f"In a previous request sent to OpenAI, the response is problematic. Please double-check your answer. Warning message: {warning_message}"
         
-        if len(self.mapping_dict) != 0 and not self.no_translation_mapping:
-            user_input["translation_mapping"] = self.mapping_dict
+        if len(self.translation_mapping.get_mappings()) != 0 and not self.no_translation_mapping:
+            user_input["translation_mapping"] = self.translation_mapping.get_mappings()
+            
         return user_input
 
     def count_used_dollars(self, translated_subtitles, messages):
@@ -547,7 +589,8 @@ Guidelines:
         self.logger.info(f"total wasted dollars: {total_wasted_dollars:.3f}\n")
         self.logger.info("========End of Translate summary=======\n")
         self.logger.info("========translation mapping=======\n")
-        self.logger.info(self.all_mappings)
+        self.logger.info(self.translation_mapping.get_all_mappings())
+        
         
         return translated
 
