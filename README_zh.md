@@ -96,21 +96,31 @@ OPENAI_API_KEY=your_api_key_here
 ### 用法
 
 ```
-python translate_gpt.py --input_file INPUT_FILE_PATH [--batch_size BATCH_SIZE] [--target_language TARGET_LANGUAGE] [--source_language SOURCE_LANGUAGE] [--video_info VIDEO_INFO]
-
+python translate_gpt.py --input_file INPUT_FILE_PATH [--batch_size BATCH_SIZE] [--target_language TARGET_LANGUAGE] [--source_language SOURCE_LANGUAGE] [--video_info VIDEO_INFO] [--model MODEL_NAME] [--no_mapping] [--load_tmp_file]
 ```
+
+在视频所在的文件夹中，您可以查看名为 `response.log` 的文件，该文件会实时更新翻译进度，就像在 ChatGPT 中一样。
 
 ### 参数
 
 - --input_file：输入字幕文件的路径。（必填）
-- --batch_size：一次处理的字幕数。（可选，默认值：40）
+- --batch_size：一次处理的字幕数。（可选，默认值：12）
 - --target_language：翻译的目标语言。（可选，默认值：'zh'，即简体中文）
 - --source_language：输入字幕文件的源语言。（可选，默认值：'en'，即英语）
-- --video_info：您可以提供有关视频的一些附加信息以提高翻译准确性。（可选，默认值：None）
+- --video_info：您可以提供有关视频的一些附加信息以提高翻译准确性。（可选）
+- --model：OpenAI API 的模型，默认为 gpt-3.5-turbo-16k。（可选）
+- --no_mapping：不使用翻译映射功能，该功能确保重复术语的一致翻译。（可选）
+- --load_tmp_file：当先前的运行被中断时使用，无论是由于触发错误还是在检测到翻译不佳后手动终止，脚本会保存所有之前批次的翻译在 tmp_subtitles.json 并使用此标志重新加载保存的翻译并从下一个批次继续。（可选）
 
-注意：video_info 可以是任何语言，您可以告诉 gpt 关于视频的主题。例如，如果您正在翻译一段关于玩游戏的视频，您可以要求 gpt 准确翻译该游戏的专有名词（或要求它使用您提供的专有名词进行翻译）。
+**注意：**
 
-该脚本在来源语言为英语、目标语言为简体中文时的效果最好。但是，您也可以使用其他语言对，并将自己的 few-shot 示例添加到 few_shot_examples.json 中以提高翻译准确性，但是 GPT 处理超过两种语言的能力不是很好，所以您可能还需要修改 translate_gpt.py 中的提示以使其正常工作。
+- **视频信息：** `--video_info` 参数可以包含任何语言的详细信息。它可以用来告知 GPT 模型视频的内容，以提高特定上下文术语的翻译质量，比如游戏中的专有名词。例如，如果你正在翻译一部关于游戏的视频，你可以指导 GPT 准确翻译游戏术语，或者使用你提供的确切专有名词来翻译。
+
+- **翻译映射：** 通过存储源语言与目标语言翻译对的词典，此功能确保视频中反复出现的特定单词或短语的翻译保持一致。如果你偏好不使用这些预设的翻译映射，请使用 `--no_mapping` 标志来禁用此功能。
+
+- **继续翻译：** 如果之前的运行被中断，无论是因为错误还是在检测到翻译不佳后手动停止，都可以使用 `--load_tmp_file` 标志。脚本会将所有已完成的翻译保存在 `tmp_subtitles.json` 文件中，使用此标志将允许脚本重新加载保存的翻译，并从下一批次继续。
+
+- **语言支持：** 虽然该脚本在将英语翻译成简体中文时表现最佳，但它也支持其他语言对。通过在 `few_shot_examples.json` 中添加定制的 few-shot 示例来提高额外语言的翻译准确性。请注意，GPT 模型处理多语言输入的性能可能会有所不同，可能需要调整 `translate_gpt.py` 中的提示。
 
 <!-- [GPT-3.5 翻译演示](https://www.bilibili.com/video/BV1xv4y1E7ZD/) -->
 

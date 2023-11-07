@@ -93,21 +93,31 @@ Replace your_api_key_here with the API key you obtained from OpenAI.
 ### Usage
 
 ```
-python translate_gpt.py --input_file INPUT_FILE_PATH [--batch_size BATCH_SIZE] [--target_language TARGET_LANGUAGE] [--source_language SOURCE_LANGUAGE] [--video_info VIDEO_INFO]
-
+python translate_gpt.py --input_file INPUT_FILE_PATH [--batch_size BATCH_SIZE] [--target_language TARGET_LANGUAGE] [--source_language SOURCE_LANGUAGE] [--video_info VIDEO_INFO] [--model MODEL_NAME] [--no_mapping] [--load_tmp_file]
 ```
 
-### Arguments
+You can check the `response.log` file in the folder containing the input video file for live updates, similar to the experience with ChatGPT.
+
+#### Arguments
 
 - --input_file: The path to the input subtitle file. (Required)
 - --batch_size: The number of subtitles to process in a batch. (Optional, default: 40)
 - --target_language: The target language for translation. (Optional, default: 'zh' for Simplified Chinese)
 - --source_language: The source language of the input subtitle file. (Optional, default: 'en' for English)
-- --video_info: You may provide some additional information about the video to improve translation accuracy. (Optional, default: None)
+- --video_info: Additional information about the video to improve translation accuracy. (Optional)
+- --model: Model for OpenAI API, default to gpt-3.5-turbo-16k. (Optional)
+- --no_mapping: Disables the use of translation mapping, a feature that ensures consistent translations for repeated terms. (Optional, flag)
+- --load_tmp_file: Load the previous translated subtitles, assuming the previous tmp file was generated with the same settings as the current run. (Optional, flag)
 
-note: video_info can be in any language, you can tell gpt the video is about what topic. For example, if you are translating a video about playing some games, you can ask gpt to accurately translate the proper nouns of that game (or ask it to translate the proper nouns with exactly the proper nouns you provided). 
+**Note:**
 
-The script currently works best with English as the source language and Simplified Chinese as the target language. However, you can also use other language pairs, and add your own few-shot examples into few_shot_examples.json to improve translation accuracy, but GPT are not so good at dealing with more than two languages, so you may also need to modify the prompt in translate_gpt.py to make it work. 
+- **Video Information:** The `--video_info` argument accepts details in any language. It can be used to inform the GPT model about the video's content, improving the translation of context-specific terms, such as proper nouns within a game. For instance, if translating a video related to gaming, you might instruct GPT to use precise translations for in-game terminology.
+
+- **Translation Mapping:** This functionality maintains consistency for frequently used terms by storing source-target translation pairs. When enabled, it prevents variations in translating terms like proper nouns and technical jargon across the video. Disable this with the `--no_mapping` flag if preferred.
+
+- **Resuming Translations:** Use the `--load_tmp_file` flag to continue a translation task from where it was previously interrupted. The script saves progress in `tmp_subtitles.json`, allowing for a seamless resumption without redoing prior work.
+
+- **Language Support:** While the script excels with English-to-Simplified Chinese translations, it can accommodate other language pairs. Enhance the accuracy for additional languages by adding tailored few-shot examples to `few_shot_examples.json`. Note that the GPT models' performance may vary with multilingual inputs, and prompt adjustments in `translate_gpt.py` might be necessary.
 
 <!-- [showcase of GPT-3.5 translation](https://www.bilibili.com/video/BV1xv4y1E7ZD/) -->
 
