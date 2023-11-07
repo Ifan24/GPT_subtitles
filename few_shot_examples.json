@@ -44,19 +44,16 @@
                             "index": 25,
                             "original_text": "the shadow dot all over the screen that makes it so people can't see anything that's",
                             "translation": "尸爆会让屏幕上布满阴影点，使人们无法看清屏幕上的任何东西，"
-                            
                         },
                         {
                             "index": 26,
                             "original_text": "going to be patched so that players can also be able to see what's going on in the",
                             "translation": "这将会被修补，以便玩家能够看清地面上发生的情况，"
-                            
                         },
                         {
                             "index": 27,
                             "original_text": "ground and not stand in harmful AoEs.",
                             "translation": "这样不会站在有害的AoEs（范围伤害技能）中。"
-                            
                         }
                     ],
                     "translation_mapping": {

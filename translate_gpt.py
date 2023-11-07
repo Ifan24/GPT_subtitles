@@ -8,6 +8,33 @@ import time
 from dotenv import load_dotenv
 import logging
 
+def check_for_errors(log_file_path, starting_line):
+    # First, check if the log file exists
+    if not os.path.exists(log_file_path):
+        print(f"No log file found at {log_file_path}")
+        return False
+    
+    error_occurred = False
+    with open(log_file_path, 'r') as log_file:
+        # Skip to the starting line
+        for _ in range(starting_line):
+            next(log_file, None)  # Skip the line safely
+        
+        # Check for errors in the new lines
+        for line in log_file:
+            if "- ERROR -" in line:  # Adjusted to match the specific error format
+                error_occurred = True
+                break
+    return error_occurred
+    
+def count_log_lines(log_file_path):
+    if os.path.exists(log_file_path):
+        with open(log_file_path, 'r') as file:
+            return sum(1 for line in file)
+    else:
+        return 0  # If the file doesn't exist, return 0 lines
+        
+        
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
@@ -76,6 +103,11 @@ class TranslationMapping:
 
     def add_mapping(self, new_mapping, translations):
         for subtitle in translations:
+            # Ensure 'index' is present and is an integer
+            if not isinstance(subtitle["index"], int):
+                # Handle the error or convert to int as appropriate
+                continue  # Skip this subtitle if the index is not valid
+                
             index = subtitle["index"]
             self.current_index = max(self.current_index, index)  # Update the most recent subtitle index
             translation = subtitle["translation"]
@@ -335,6 +367,8 @@ Guidelines:
                     temperature=0.1,
                     top_p=0.5,
                     stream=True,
+                    # not very useful, the output format is JSON but does not follow the prompt
+                    # response_format={"type": "json_object" } if '1106' in self.model else {"type": "text"},
                 )
                 terminator = self.openai_logger.handlers[0].terminator
                 self.openai_logger.handlers[0].terminator = ''
@@ -373,6 +407,16 @@ Guidelines:
                 # Extract translations and construct the output string
                 output_string = ""
                 for subtitle in data["current_batch_subtitles_translation"]:
+                    
+                    # If the 'translation' key is not present, use 'original_text' as a fallback
+                    if 'translation' not in subtitle:
+                        self.logger.error(f"Missing 'translation' in subtitle: {subtitle}")
+                        subtitle['translation'] = subtitle.get('original_text', '')
+                        
+                    # Ensure 'index' is present and is an integer
+                    if 'index' not in subtitle or not isinstance(subtitle['index'], int):
+                        self.logger.error(f"Missing or invalid 'index' in subtitle: {subtitle}")
+                    
                     index = subtitle["index"]
                     translation = subtitle["translation"]
                     output_string += f"{index}\n{translation}\n\n"
@@ -468,19 +512,15 @@ Guidelines:
     def count_used_dollars(self, translated_subtitles, messages):
         prompt_tokens = count_token(str(messages))
         completion_tokens = count_token(translated_subtitles)
-        if self.model == "gpt-3.5-turbo":
-            # used_tokens = response['usage']['total_tokens']
-            used_dollars = (prompt_tokens / 1000 * 0.0015) + (completion_tokens / 1000 * 0.002)
+        used_dollars = 0
+        if 'gpt-3.5-turbo' in self.model:
+            used_dollars = (prompt_tokens / 1000 * 0.001) + (completion_tokens / 1000 * 0.002)
             self.logger.info(f"prompt tokens: {prompt_tokens}, completion tokens: {completion_tokens}, Used dollars: {used_dollars}")
                     
-        elif self.model == "gpt-3.5-turbo-16k-0613" or self.model == "gpt-3.5-turbo-16k":
-            used_dollars = (prompt_tokens / 1000 * 0.003) + (completion_tokens / 1000 * 0.004)
-            self.logger.info(f"prompt tokens: {prompt_tokens}, completion tokens: {completion_tokens}, Used dollars: {used_dollars}")
-                    
-        elif self.model == "gpt-4":
+        elif 'gpt-4' in self.model:
             # prompt_tokens = response['usage']['prompt_tokens']
             # completion_tokens = response['usage']['completion_tokens']
-            used_dollars = (prompt_tokens / 1000 * 0.03) + (completion_tokens / 1000 * 0.06)
+            used_dollars = (prompt_tokens / 1000 * 0.01) + (completion_tokens / 1000 * 0.03)
             self.logger.info(f"prompt tokens: {prompt_tokens}, completion tokens: {completion_tokens}, Used dollars: {used_dollars}")
         return used_dollars
    
@@ -595,6 +635,10 @@ Guidelines:
         return translated
 
 def translate_with_gpt(input_file, target_language='zh', source_language='en', batch_size=40, model='gpt-3.5-turbo-16k', video_info=None, no_translation_mapping=False, load_from_tmp=False):
+    # check log file
+    log_file_path = os.path.join(os.path.dirname(input_file), 'translator.log')
+    starting_line = count_log_lines(log_file_path)
+    
     # Extract the file name without the extension
     file_name = os.path.splitext(os.path.basename(input_file))[0]
     
@@ -608,6 +652,9 @@ def translate_with_gpt(input_file, target_language='zh', source_language='en', b
     output_file = os.path.join(os.path.dirname(input_file), f"{os.path.splitext(os.path.basename(input_file))[0]}_{target_language}_gpt.srt")
     subtitle.save_subtitles(output_file, translated_subtitles)
     
+    # check if an error was logged
+    if check_for_errors(log_file_path, starting_line):
+        print("An error was logged. Please search '- ERROR -' in translator.log for more details.")
     
 def main():
     parser = argparse.ArgumentParser(description='Translate subtitles using GPT')
@@ -617,7 +664,7 @@ def main():
     parser.add_argument('-l', '--target_language', help='The target language for translation.', default='zh')
     parser.add_argument('-s', '--source_language', help='The source language for translation.', default='en')
     parser.add_argument('-v', "--video_info", type=str, default="", help="Additional information about the video.")
-    parser.add_argument('-m', '--model', default='gpt-3.5-turbo-16k', help='Model for OpenAI API', type=str, choices=['gpt-3.5-turbo', 'gpt-4', 'gpt-3.5-turbo-16k', 'gpt-3.5-turbo-16k-0613'])
+    parser.add_argument('-m', '--model', default='gpt-3.5-turbo-16k', help='Model for OpenAI API, default to gpt-3.5-turbo-16k', type=str)
     parser.add_argument('-um', "--no_mapping", action='store_true', help="don't use translation mapping as input to the model" )
     parser.add_argument('-lt', "--load_tmp_file", action='store_true', help="load the previous translated subtitles, assume previous tmp file generated with the same setting as the current run")
     
