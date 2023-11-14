@@ -39,16 +39,17 @@ python main.py --youtube_url [YOUTUBE_URL] --target_language [TARGET_LANGUAGE] -
 ```
 # Arguments
 
----youtube_url: The URL of the YouTube video.
+- --youtube_url: The URL of the YouTube video.
 
---local_video: The path to the local video file.
+- --local_video: The path to the local video file.
 
---target_language: The target language for translation (default: 'zh').
+- --target_language: The target language for translation (default: 'zh').
 
---model: Choose one of the Whisper models (default: 'small', choices: ['tiny', 'base', 'small', 'medium', 'large']).
+- --model: Choose one of the Whisper models (default: 'small', choices: ['tiny', 'base', 'small', 'medium', 'large']).
 
---translation_method: The method to use for translation. (default: 'm2m100', choices: ['m2m100', 'google', 'whisper', 'gpt']).
+- --translation_method: The method to use for translation. (default: 'google', choices: ['m2m100', 'google', 'whisper', 'gpt', 'no_translate']).
 
+- --no_transcribe: Skip the transcription step. Assume there is a SRT file with the same name as the video file
 
 Note: You must provide either --youtube_url or --local_video, but not both.
 
@@ -70,9 +71,10 @@ python main.py --local_video [VIDEO_FILE_PATH] --target_language 'zh' --model 'm
 The script will generate the following output files in the same directory as the input video:
 
 - An SRT file containing the original transcribed subtitles.
+- An SRT file containing subtitles that either merge two short lines together or split long lines into multiple lines.
 - An SRT file containing the translated subtitles.
-- An SRT file containing the combined dual subtitles.
-- A video file with embedded dual subtitles (not working yet).
+<!-- - An SRT file containing the combined dual subtitles. -->
+<!-- - A video file with embedded dual subtitles (not working yet). -->
 
 
 # Subtitle Translation using GPT-3.5-16k （translate_gpt.py）

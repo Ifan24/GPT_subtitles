@@ -244,10 +244,56 @@ class SubtitleProcessor:
             f.write(srt_sub)
 
         print(f"subtitle is saved at {srt_file}")
+    
+    def load_transcript(self, srt_file):
+        with open(srt_file, 'r', encoding='utf-8') as file:
+            lines = file.readlines()
+    
+        segments = []
+        current_segment = {}
+        for line in lines:
+            if line.strip().isdigit():
+                # If a new segment starts, save the current one and reset
+                if current_segment:
+                    segments.append(current_segment)
+                    current_segment = {}
+            elif '-->' in line:
+                times = line.split('-->')
+                current_segment['start'] = self.srt_time_to_seconds(times[0].strip())
+                current_segment['end'] = self.srt_time_to_seconds(times[1].strip())
+            elif line.strip():
+                # Accumulate multi-line text
+                current_segment['text'] = (current_segment.get('text', '') + line.strip() + ' ').strip()
+            else:
+                # Skip empty lines
+                continue
+    
+        # Add the last segment if not empty
+        if current_segment:
+            segments.append(current_segment)
+    
+        return {'segments': segments, 'language': self.video_language}
+    
+    def srt_time_to_seconds(self, time_str):
+        """Convert SRT time format to seconds."""
+        hours, minutes, seconds = map(float, time_str.replace(',', '.').split(':'))
+        return hours * 3600 + minutes * 60 + seconds
+
+    def process(self, no_transcribe=False):
+        # check if the SRT file already exist
+        srt_file = os.path.join(os.path.dirname(self.video_path), f'{Path(self.video_path).stem}.srt')
+        if os.path.exists(srt_file) and not no_transcribe:
+            user_input = input(f"The SRT file {srt_file} already exists. Do you want to use it? (yes/no): ")
+            if user_input.lower() == 'yes' or user_input.lower() == 'y':
+                no_transcribe = True
+    
+        if not no_transcribe:
+            # Transcribe the video
+            transcript, srt_file = self.transcribe_audio()
+        else:
+            # Load existing transcript
+            transcript = self.load_transcript(srt_file)
         
-    def process(self):
-        # Transcribe the video
-        transcript, srt_file = self.transcribe_audio()
         if self.translation_method == 'no_translate':
             return
         
@@ -276,8 +322,9 @@ if __name__ == "__main__":
     parser.add_argument('--youtube_url', help='The URL of the YouTube video.', type=str)
     parser.add_argument('--local_video', help='The path to the local video file.', type=str)
     parser.add_argument('--target_language', help='The target language for translation.', default='zh')
-    parser.add_argument("--model", help="""Choose one of the Whisper model""", default='small', type=str, choices=['tiny', 'base', 'small', 'medium', 'large'])
+    parser.add_argument('--model', help="""Choose one of the Whisper model""", default='small', type=str, choices=['tiny', 'base', 'small', 'medium', 'large'])
     parser.add_argument('--translation_method', help='The method to use for translation. Options: "m2m100" or "google" or "whisper" or "gpt"', default='m2m100', choices=['m2m100', 'google', 'whisper', 'gpt', 'no_translate'])
+    parser.add_argument('--no_transcribe', action='store_true', help="don't transcribe the video" )
 
     args = parser.parse_args()
 
@@ -288,7 +335,7 @@ if __name__ == "__main__":
         raise ValueError("Must provide one of 'youtube_url' or 'local_video'.")
 
     # Download the YouTube video or use the local video file
-    if args.youtube_url:
+    if args.youtube_url: 
         from youtube_downloader import YouTubeDownloader
         video_filename = YouTubeDownloader(args.youtube_url, args.target_language).download_video()
     else:
@@ -297,4 +344,8 @@ if __name__ == "__main__":
 
     # Create SubtitleProcessor instance and process the video
     subtitle_processor = SubtitleProcessor(video_path=video_filename, target_language=args.target_language, model=args.model, translation_method=args.translation_method)
-    subtitle_processor.process()
+    subtitle_processor.process(args.no_transcribe)
+    
+    # --translation_method 'no_translate' --no_transcribe
+    if args.no_transcribe and args.translation_method == 'no_translate':
+        print("wow there is nothing to do. Exiting the program.")
