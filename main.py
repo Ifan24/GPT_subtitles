@@ -138,7 +138,7 @@ class SubtitleProcessor:
 
     def transcribe_audio(self):
         if self.model == 'large':
-            self.model = 'large-v2'
+            self.model = 'large-v3'
             
         model = WhisperModel(self.model, device="cuda", compute_type="float16")
         # or run on GPU with INT8
@@ -230,7 +230,7 @@ class SubtitleProcessor:
 
     def translate_with_whisper(self, language):
             
-        model = WhisperModel('large-v2', device="cuda", compute_type="float16")
+        model = WhisperModel('large-v3', device="cuda", compute_type="float16")
         
         print("Transcribing audio...")
         segments, info = model.transcribe(self.video_path, word_timestamps=True, language=language)
@@ -323,7 +323,7 @@ if __name__ == "__main__":
     parser.add_argument('--local_video', help='The path to the local video file.', type=str)
     parser.add_argument('--target_language', help='The target language for translation.', default='zh')
     parser.add_argument('--model', help="""Choose one of the Whisper model""", default='small', type=str, choices=['tiny', 'base', 'small', 'medium', 'large'])
-    parser.add_argument('--translation_method', help='The method to use for translation. Options: "m2m100" or "google" or "whisper" or "gpt"', default='m2m100', choices=['m2m100', 'google', 'whisper', 'gpt', 'no_translate'])
+    parser.add_argument('--translation_method', help='The method to use for translation. Options: "m2m100" or "google" or "whisper" or "gpt"', default='google', choices=['m2m100', 'google', 'whisper', 'gpt', 'no_translate'])
     parser.add_argument('--no_transcribe', action='store_true', help="don't transcribe the video" )
 
     args = parser.parse_args()
