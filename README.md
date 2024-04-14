@@ -1,5 +1,11 @@
 # Dual Subtitles for Video
 
+[![GPT Subtitler Banner](assets/gpt_subtitler_en.png)](https://gptsubtitler.com)
+
+🆕 Check out [GPT Subtitler](https://gptsubtitler.com)! 🚀 It's a web app inspired by this project that makes it easy to translate your subtitles using GPT-3.5 and GPT-4. ✨ It comes with many features, including real-time translation preview, support for editing prompts, and the ability to provide additional context. 🎁 Try it out now and get free usage for your first few subtitle files. You can also purchase tokens, and translate without needing your own OpenAI API key! 💰 [Try it out now](https://gptsubtitler.com) 👈
+---
+
+
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1XDLFlgew9BzUqNpTv_kq0HNocTNOSekP?usp=sharing)
 
 下载 YouTube 视频（或提供您自己的视频）并使用 Whisper 和翻译API生成双语字幕，中文文档请见 [中文](README_zh.md)

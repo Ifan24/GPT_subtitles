@@ -1,4 +1,11 @@
-# 为视频提供双语字幕
+# 视频双语字幕
+
+
+[![GPT Subtitler Banner](assets/gpt_subtitler_zh.png)](https://gptsubtitler.com)
+
+🆕 来试试 [GPT Subtitler](https://gptsubtitler.com)！🚀 这是一个受本项目启发而开发的 Web 应用，可以利用 GPT-3.5 和 GPT-4 来轻松翻译字幕。✨ 带有许多功能，包括实时翻译预览、支持编辑提示词和提供额外上下文等。🎁 注册可赠送一定量的Tokens，足够翻译2-3个视频的字幕，还可以购买 Tokens，无需自己的 OpenAI API 密钥即可进行翻译！💰 [来试试看](https://gptsubtitler.com) 👈
+
+---
 
 [![在 Colab 中打开](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1XDLFlgew9BzUqNpTv_kq0HNocTNOSekP?usp=sharing)
 
