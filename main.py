@@ -233,17 +233,51 @@ class SubtitleProcessor:
         model = WhisperModel('large-v3', device="cuda", compute_type="float16")
         
         print("Transcribing audio...")
-        segments, info = model.transcribe(self.video_path, word_timestamps=True, language=language)
-        text_list = []
+        if language == 'en':
+            print("Translating to English")
+            segments, info = model.transcribe(self.video_path, word_timestamps=True, task="translate")
+        else: 
+            print(f"Attempt to translate to {language}. Note, it is not officially supported by the Whisper model.")
+            segments, info = model.transcribe(self.video_path, word_timestamps=True, language=language)
+            
+        print("Detected language '%s' with probability %f" % (info.language, info.language_probability))
+        self.video_language = info.language
+        
+        words_list = []
+        sentence_list = []
         for segment in segments:
             print("[%.2fs -> %.2fs] %s" % (segment.start, segment.end, segment.text))
-            text_list.append({'text': segment.text, 'start': segment.start, 'end': segment.end})
-        srt_sub = self.segments_to_srt(text_list)
-        srt_file = os.path.join(os.path.dirname(self.video_path), f'{Path(self.video_path).stem}_{language}_whisper.srt')
-        with open(srt_file, 'w') as f:
-            f.write(srt_sub)
-
-        print(f"subtitle is saved at {srt_file}")
+            sentence = {'text': segment.text, 'start': segment.start, 'end': segment.end}
+            sentence_list.append(sentence)
+            for word in segment.words:
+                dict_word = {'word': word.word, 'start': word.start, 'end': word.end}
+                words_list.append(dict_word)
+    
+        word_list_file = os.path.join(os.path.dirname(self.video_path), f'{Path(self.video_path).stem}_{language}_words.json')
+        self.save_to_file(words_list, word_list_file)
+    
+        # Convert word segments to sentences and merge them
+        merged_sentence_segments = self.segment_merger.process_segments(words_list)
+    
+        srt_sub = self.segments_to_srt(merged_sentence_segments)
+        srt_file = os.path.join(os.path.dirname(self.video_path), f'{Path(self.video_path).stem}_{language}.srt')
+        self.save_to_file(srt_sub, srt_file)
+    
+        # Original whisper segmentation
+        srt_sub = self.segments_to_srt(sentence_list)
+        original_srt_file = os.path.join(os.path.dirname(self.video_path), f'{Path(self.video_path).stem}_{language}_original.srt')
+        self.save_to_file(srt_sub, original_srt_file)
+    
+        result = {'segments': merged_sentence_segments, 'language': info.language}
+        return result, srt_file
+    
+    def save_to_file(self, content, file_path):
+        with open(file_path, 'w', encoding='utf-8') as f:
+            if isinstance(content, list):
+                json.dump(content, f, ensure_ascii=False, indent=4)
+            else:
+                f.write(content)
+        print(f"File saved at {file_path}")
     
     def load_transcript(self, srt_file):
         with open(srt_file, 'r', encoding='utf-8') as file:
@@ -286,7 +320,10 @@ class SubtitleProcessor:
             user_input = input(f"The SRT file {srt_file} already exists. Do you want to use it? (yes/no): ")
             if user_input.lower() == 'yes' or user_input.lower() == 'y':
                 no_transcribe = True
-    
+                
+        if self.translation_method == 'whisper':
+            self.translate_with_whisper(self.target_language)
+            
         if not no_transcribe:
             # Transcribe the video
             transcript, srt_file = self.transcribe_audio()
@@ -301,11 +338,8 @@ class SubtitleProcessor:
             from translate_gpt import translate_with_gpt
             # Translate the transcript to another language using gpt-3.5 or gpt-4 Translate
             translate_with_gpt(input_file=srt_file, target_language=self.target_language, source_language=self.video_language)
-
-        elif self.translation_method == 'whisper':
-            self.translate_with_whisper(self.target_language)
             
-        else:
+        elif self.translation_method == 'm2m100':
             # Translate the transcript to another language
             translated_transcript = self.translation_service.translate(transcript, src_lang=self.video_language, tr_lang=self.target_language)
             print(translated_transcript)
