@@ -1,8 +1,28 @@
 # Dual Subtitles for Video
 
+<details>
+
+<summary>🎉 Welcome to try GPT Subtitler - a website for translating subtitles!</summary>
+
 [![GPT Subtitler Banner](assets/gpt_subtitler_en.png)](https://gptsubtitler.com)
 
-🆕 Check out [GPT Subtitler](https://gptsubtitler.com)! 🚀 It's a web app inspired by this project that makes it easy to translate your subtitles using GPT-3.5 and GPT-4. ✨ It comes with many features, including real-time translation preview, support for editing prompts, and the ability to provide additional context. 🎁 Try it out now and get free usage for your first few subtitle files. You can also purchase tokens, and translate without needing your own OpenAI API key! 💰 [Try it out now](https://gptsubtitler.com) 👈
+🎉 [GPT Subtitler](https://gptsubtitler.com) is a web application inspired by this project, with many powerful features:
+
+✨ Supports high-quality subtitle translation using various models such as Anthropic Claude, GPT-3.5, and GPT-4. Currently, the Claude-Haiku model is recommended.
+
+💰 New users receive 100,000 free tokens upon registration, enough to translate 20 minutes of video subtitles for free.
+
+🎁 Free tokens can be claimed daily, and tokens can also be purchased at low prices. No API key is required to use AI translation.
+
+👀 Real-time preview of translation results, support for editing prompts, few-shot examples, and the ability to stop translation at any time and restart from any position. After translation, multiple SRT subtitle file formats can be exported (translation + original or original + translation bilingual subtitles).
+
+🙏 The website is currently in the early development stage and needs your support and feedback! You are welcome to try it out and provide valuable suggestions.
+
+💬 If you encounter any bugs or have any suggestions during use, please feel free to raise an issue on the GitHub project or send feedback via email.
+
+Website link 👉 https://gptsubtitler.com/en
+
+</details>
 ---
 
 

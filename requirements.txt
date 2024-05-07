@@ -1,7 +1,7 @@
 git+https://github.com/openai/whisper.git
 # git+https://github.com/m-bain/whisperx.git
 transformers>=4.30.0
-tqdm==4.65.0
+tqdm>=4.66.3
 pytube==12.1.2
 sentencepiece==0.1.97
 

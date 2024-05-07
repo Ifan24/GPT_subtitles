@@ -1,9 +1,29 @@
 # 视频双语字幕
 
 
-[![GPT Subtitler Banner](assets/gpt_subtitler_zh.png)](https://gptsubtitler.com)
+<details>
 
-🆕 来试试 [GPT Subtitler](https://gptsubtitler.com)！🚀 这是一个受本项目启发而开发的 Web 应用，可以利用 GPT-3.5 和 GPT-4 来轻松翻译字幕。✨ 带有许多功能，包括实时翻译预览、支持编辑提示词和提供额外上下文等。🎁 注册可赠送一定量的Tokens，足够翻译2-3个视频的字幕，还可以购买 Tokens，无需自己的 OpenAI API 密钥即可进行翻译！💰 [来试试看](https://gptsubtitler.com) 👈
+  <summary>🎉 欢迎试用 GPT Subtitler 字幕翻译网站!</summary>
+
+  [![GPT Subtitler Banner](assets/gpt_subtitler_zh.png)](https://gptsubtitler.com)
+
+  🎉 [GPT Subtitler](https://gptsubtitler.com) 是一个受本项目启发而开发的 Web 应用，拥有众多强大功能:
+
+  ✨ 支持使用 Anthropic Claude、GPT-3.5 和 GPT-4 等多种模型进行高质量字幕翻译，目前推荐使用 Claude-Haiku 模型  
+
+  💰 新用户注册立即送10万免费 Token，足够免费翻译20分钟视频字幕  
+
+  🎁 每日可领取免费 Token，也可低价购买 Token，无需 API 密钥即可使用 AI 翻译  
+
+  👀 实时预览翻译结果，支持编辑提示词，小样本实例，以及随时停止翻译和在任意位置重启的功能，可在翻译结束后导出多种 SRT 字幕文件格式（翻译+原文 或 原文+翻译的双语字幕）  
+
+  🙏 网站目前处于早期开发阶段，很需要您的支持和反馈!欢迎体验并提供宝贵意见  
+
+  💬 使用过程中如遇到 BUG 或有任何建议，欢迎在 GitHub 项目中提 Issue 或发送邮件反馈  
+
+  网站指路 👉 https://gptsubtitler.com/zh
+
+</details>
 
 ---
 
