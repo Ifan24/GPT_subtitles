@@ -8,7 +8,9 @@
 
 🎉 [GPT Subtitler](https://gptsubtitler.com) is a web application inspired by this project, with many powerful features:
 
-✨ Supports high-quality subtitle translation using various models such as Anthropic Claude, GPT-3.5, and GPT-4. Currently, the Claude-Haiku model is recommended.
+✨ Supports high-quality subtitle translation using various models such as Anthropic Claude, GPT-3.5, and GPT-4. Currently, the **Claude-Haiku** model is recommended. 
+
+Additionally, the **Gemini-1.5-flash** and **Gemini-1.5-pro** models are available for free users to try, although they may not be as accurate as the Claude-Haiku model.
 
 💰 New users receive 100,000 free tokens upon registration, enough to translate 20 minutes of video subtitles for free.
 
@@ -21,6 +23,13 @@
 💬 If you encounter any bugs or have any suggestions during use, please feel free to raise an issue on the GitHub project or send feedback via email.
 
 Website link 👉 https://gptsubtitler.com/en
+
+Thanks for your support and for reading this far! 🙏
+
+Here is a redeem code for 100,000 tokens: `GPTSubtitler_github_repo`
+
+You can use it at [Settings](https://gptsubtitler.com/settings)
+
 
 </details>
 ---

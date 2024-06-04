@@ -9,7 +9,9 @@
 
   🎉 [GPT Subtitler](https://gptsubtitler.com) 是一个受本项目启发而开发的 Web 应用，拥有众多强大功能:
 
-  ✨ 支持使用 Anthropic Claude、GPT-3.5 和 GPT-4 等多种模型进行高质量字幕翻译，目前推荐使用 Claude-Haiku 模型  
+  ✨ 支持使用 Anthropic Claude、GPT-3.5 和 GPT-4 等多种模型进行高质量字幕翻译，目前推荐使用 **Claude-Haiku** 模型  
+
+  此外，还提供**Gemini-1.5-flash**和**Gemini-1.5-pro**模型，目前可以免费使用，但可能不如Claude-Haiku模型准确。
 
   💰 新用户注册立即送10万免费 Token，足够免费翻译20分钟视频字幕  
 
@@ -22,6 +24,12 @@
   💬 使用过程中如遇到 BUG 或有任何建议，欢迎在 GitHub 项目中提 Issue 或发送邮件反馈  
 
   网站指路 👉 https://gptsubtitler.com/zh
+
+  感谢您的支持以及阅读到这里！🙏
+
+  这里是一个可兑换10万Tokens：`GPTSubtitler_github_repo`
+  
+  您可以在[设置](https://gptsubtitler.com/settings)中使用它。
 
 </details>
 
